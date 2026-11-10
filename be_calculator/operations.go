@@ -47,7 +47,10 @@ func registerOperations(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/operations/multiplication", operationHandler(binaryOperations['*']))
 	mux.HandleFunc("POST /api/operations/division", operationHandler(binaryOperations['/']))
 	mux.HandleFunc("POST /api/operations/exponentiation", operationHandler(binaryOperations['^']))
-	mux.HandleFunc("POST /api/operations/square-root", squareRootHandler)
+	mux.HandleFunc("POST /api/operations/square-root", unaryOperationHandler(squareRoot))
+	mux.HandleFunc("POST /api/operations/percentage", unaryOperationHandler(func(value float64) (float64, *apiError) {
+		return percentage(value), nil
+	}))
 	mux.HandleFunc("POST /api/operations/evaluate", evaluate)
 }
 
@@ -58,18 +61,24 @@ func squareRoot(value float64) (float64, *apiError) {
 	return math.Sqrt(value), nil
 }
 
-func squareRootHandler(w http.ResponseWriter, r *http.Request) {
-	fields, ok := readOperationFields(w, r)
-	if !ok {
-		return
+func percentage(value float64) float64 {
+	return value / 100
+}
+
+func unaryOperationHandler(calculate func(float64) (float64, *apiError)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		fields, ok := readOperationFields(w, r)
+		if !ok {
+			return
+		}
+		value, valid := parseOperand(fields["value"])
+		if !valid {
+			writeAPIError(w, http.StatusBadRequest, "INVALID_OPERANDS", "Value must be a finite JSON number.")
+			return
+		}
+		result, calculationError := calculate(value)
+		writeOperationResult(w, result, calculationError)
 	}
-	value, valid := parseOperand(fields["value"])
-	if !valid {
-		writeAPIError(w, http.StatusBadRequest, "INVALID_OPERANDS", "Value must be a finite JSON number.")
-		return
-	}
-	result, calculationError := squareRoot(value)
-	writeOperationResult(w, result, calculationError)
 }
 
 func operationHandler(calculate func(left, right float64) (float64, *apiError)) http.HandlerFunc {

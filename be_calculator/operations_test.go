@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -41,6 +42,24 @@ func TestOperations(t *testing.T) {
 		{"signed decimals and scientific notation", evaluatePath, `{"expression":"-2.5*-2e+1 + .5"}`, 50.5},
 		{"leading zero is decimal", evaluatePath, `{"expression":"08+1"}`, 9},
 		{"fractional quotient", evaluatePath, `{"expression":"5/2"}`, 2.5},
+		{"explicit percentage increase", evaluatePath, `{"expression":"200*(1+10%)"}`, 220},
+		{"standalone percentage", evaluatePath, `{"expression":"50%"}`, 0.5},
+		{"add a percentage", evaluatePath, `{"expression":"200+10%"}`, 200.1},
+		{"subtract a percentage", evaluatePath, `{"expression":"200-10%"}`, 199.9},
+		{"percentage of quantity", evaluatePath, `{"expression":"200*10%"}`, 20},
+		{"divide by percentage", evaluatePath, `{"expression":"200/10%"}`, 2000},
+		{"successive percentage additions", evaluatePath, `{"expression":"200+25%+25%"}`, 200.5},
+		{"successive percentage subtractions", evaluatePath, `{"expression":"200-25%-25%"}`, 199.5},
+		{"grouped percentage", evaluatePath, `{"expression":"200+(10%)"}`, 200.1},
+		{"percentage group", evaluatePath, `{"expression":"200+(5+5)%"}`, 200.1},
+		{"product is a numeric term", evaluatePath, `{"expression":"200+10%*2"}`, 200.2},
+		{"grouped base", evaluatePath, `{"expression":"(100+100)+10%"}`, 200.1},
+		{"negative percentage", evaluatePath, `{"expression":"200+-10%"}`, 199.9},
+		{"percent in root", evaluatePath, `{"expression":"sqrt(25%)"}`, 0.5},
+		{"percent after power", evaluatePath, `{"expression":"(2^3)%"}`, 0.08},
+		{"power percent exponent", evaluatePath, `{"expression":"4^50%"}`, 2},
+		{"zero percentage", evaluatePath, `{"expression":"0%"}`, 0},
+		{"percentage multiplication", evaluatePath, `{"expression":"50%*20%"}`, 0.1},
 		{"square root chain", evaluatePath, `{"expression":"2+sqrt(9+7)*3"}`, 14},
 		{"nested square roots", evaluatePath, `{"expression":"sqrt(sqrt(81))^2"}`, 9},
 		{"spaced square root", evaluatePath, `{"expression":"sqrt ( 0 )"}`, 0},
@@ -53,6 +72,7 @@ func TestOperations(t *testing.T) {
 		{"fractional power", evaluatePath, `{"expression":"9^0.5"}`, 3},
 		{"zero to zero", evaluatePath, `{"expression":"0^0"}`, 1},
 		{"power endpoint", "/api/operations/exponentiation", `{"left":2,"right":3}`, 8},
+		{"percentage endpoint", "/api/operations/percentage", `{"value":50}`, 0.5},
 		{"unary plus on a group", evaluatePath, `{"expression":"2*+(3+4)"}`, 14},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -66,7 +86,7 @@ func TestOperations(t *testing.T) {
 			if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
 				t.Fatal(err)
 			}
-			if result, ok := body["result"]; !ok || result != tc.want {
+			if result, ok := body["result"]; !ok || math.Abs(result-tc.want) > 1e-12*math.Max(1, math.Abs(tc.want)) {
 				t.Errorf("response = %v, want result %v", body, tc.want)
 			}
 		})
@@ -105,7 +125,9 @@ func TestOperationErrors(t *testing.T) {
 		{"malformed expression body", evaluatePath, `{"expression":`, 400, "INVALID_JSON"},
 		{"non-string expression", evaluatePath, `{"expression":2}`, 400, "INVALID_EXPRESSION"},
 		{"incomplete expression", evaluatePath, `{"expression":"1/0+"}`, 400, "INVALID_EXPRESSION"},
-		{"unsupported operator", evaluatePath, `{"expression":"5%"}`, 400, "INVALID_EXPRESSION"},
+		{"percentage missing operand", evaluatePath, `{"expression":"%"}`, 400, "INVALID_EXPRESSION"},
+		{"repeated percentage", evaluatePath, `{"expression":"5%%"}`, 400, "INVALID_EXPRESSION"},
+		{"unsupported operator", evaluatePath, `{"expression":"5!"}`, 400, "INVALID_EXPRESSION"},
 		{"unsupported function call", evaluatePath, `{"expression":"sin(4)"}`, 400, "INVALID_EXPRESSION"},
 		{"expression length limit", evaluatePath, `{"expression":"` + strings.Repeat("1", maxExpressionBytes+1) + `"}`, 400, "INVALID_EXPRESSION"},
 		{"expression nesting limit", evaluatePath, `{"expression":"` + strings.Repeat("(", maxExpressionDepth+1) + "1" + strings.Repeat(")", maxExpressionDepth+1) + `"}`, 400, "INVALID_EXPRESSION"},

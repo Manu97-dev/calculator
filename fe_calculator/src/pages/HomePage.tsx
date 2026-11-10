@@ -9,6 +9,7 @@ export function HomePage() {
         <h1>Calculator</h1>
         <p className={styles.description}>
           Enter an expression, then press =. Use ^ for powers and parentheses to group terms.
+          {' '}Use % to divide a value by 100, such as 50% = 0.5.
         </p>
       </header>
       <Calculator />

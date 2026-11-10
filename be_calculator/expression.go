@@ -87,6 +87,10 @@ func (p *expressionParser) operand() float64 {
 // powers right associative: 2^3^2 means 2^(3^2).
 func (p *expressionParser) power() float64 {
 	left := p.primary()
+	if !p.invalid && p.peek() == '%' {
+		p.remaining = p.remaining[1:]
+		left = percentage(left)
+	}
 	if !p.invalid && p.peek() == '^' {
 		if p.depth >= maxExpressionDepth {
 			p.invalid = true

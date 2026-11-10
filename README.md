@@ -1,6 +1,6 @@
 # Full-stack calculator
 
-A responsive React and TypeScript calculator backed by a Go REST API. It supports addition, subtraction, multiplication, division, exponentiation, square roots, and chained expressions with standard operator precedence.
+A responsive React and TypeScript calculator backed by a Go REST API. It supports addition, subtraction, multiplication, division, exponentiation, square roots, percentages, and chained expressions with standard operator precedence.
 
 **Try it:** Enter `2 + 3 × 4` and press **=** to get **14**. Then press **− 3 =** to continue from that result and get **11**.
 
@@ -54,6 +54,8 @@ An invalid expression returns `400 INVALID_EXPRESSION`. Dividing by zero returns
 
 Square root also has a unary endpoint, `POST /api/operations/square-root`, accepting `{"value":9}` and returning `{"result":3}`.
 
+The unary `POST /api/operations/percentage` endpoint accepts `{"value":50}` and returns `{"result":0.5}`.
+
 See the [backend README](be_calculator/README.md) for the full error contract and more examples.
 
 ## Tests and coverage
@@ -84,6 +86,6 @@ Open `fe_calculator/coverage/index.html` or `be_calculator/coverage/index.html` 
 - **Go owns arithmetic and validation.** React manages keypad input and uses one TanStack Query mutation to submit an expression, show the result, or display a server error while keeping the input editable.
 - **One request evaluates the entire expression.** A small recursive-descent parser evaluates multiplication and division before addition and subtraction. Addition, subtraction, multiplication, and division run left to right at the same precedence. Powers group right to left, so `2^3^2 = 512`. Powers bind before unary signs, so `−2^2 = −4` and `(−2)^2 = 4`. The individual endpoints let clients submit two structured operands directly and share the same arithmetic functions as the parser.
 - **Numbers use `float64`.** This supports fractional division and follows ordinary binary floating-point rounding. Expressions are limited to 1,024 bytes and 32 nested groups or powers. Parentheses are accepted by the API.
-- **Powers support negative and fractional exponents.** `0^0` is defined as `1`. Negative bases with non-integer exponents return `422 INVALID_DOMAIN`, and zero with a negative exponent returns `422 DIVISION_BY_ZERO`. Square roots use `sqrt(expression)`. Press **√** to insert `sqrt(` and close the group with **)** before pressing **=**. On a displayed result, **√** wraps that result. Negative square roots return `422 INVALID_DOMAIN`. Percentage remains planned.
+- **Powers support negative and fractional exponents.** `0^0` is defined as `1`. Negative bases with non-integer exponents return `422 INVALID_DOMAIN`, and zero with a negative exponent returns `422 DIVISION_BY_ZERO`. Square roots use `sqrt(expression)`. Press **√** to insert `sqrt(` and close the group with **)** before pressing **=**. On a displayed result, **√** wraps that result. Negative square roots return `422 INVALID_DOMAIN`. Percentages always divide their operand by 100, so `50% = 0.5`, `200+10% = 200.1`, and `200×10% = 20`. Express a 10 percent increase as `200×(1+10%)`. Results retain ordinary floating-point rounding.
 
 See the [frontend README](fe_calculator/README.md) for the Vite proxy and deployment configuration.

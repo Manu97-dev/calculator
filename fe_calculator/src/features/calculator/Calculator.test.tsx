@@ -354,3 +354,22 @@ it('shows square-root domain errors and keeps the input editable', async () => {
   expect((await screen.findByRole('alert')).textContent).toBe('Square root requires a nonnegative number.')
   expect(screen.getByLabelText('Calculator input').textContent).toBe('sqrt(−1)')
 })
+
+it('submits standalone percentages in a chain and applies percentage to a displayed result', async () => {
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce(Response.json({ result: 200.5 }))
+    .mockResolvedValueOnce(Response.json({ result: 2.005 }))
+  vi.stubGlobal('fetch', fetchMock)
+  const press = renderCalculator()
+
+  await press('2', '0', '0', 'Add', '2', '5', 'Percent', 'Add', '2', '5', 'Percent', 'Equals')
+  expect((await screen.findByLabelText('Calculator result')).textContent).toBe('200.5')
+  expect(fetchMock).toHaveBeenNthCalledWith(1, '/api/operations/evaluate', expect.objectContaining({
+    body: JSON.stringify({ expression: '200+25%+25%' }),
+  }))
+  await press('Percent', 'Equals')
+  expect((await screen.findByLabelText('Calculator result')).textContent).toBe('2.005')
+  expect(fetchMock).toHaveBeenNthCalledWith(2, '/api/operations/evaluate', expect.objectContaining({
+    body: JSON.stringify({ expression: '200.5%' }),
+  }))
+})

@@ -95,3 +95,29 @@ curl -sS http://localhost:3000/api/operations/square-root \
 The expression endpoint accepts `sqrt(expression)`, so `2+sqrt(9+7)*3` returns `14`. The function requires parentheses, and nested calls share the parser's depth budget. Square root returns the principal, nonnegative root. A negative input returns `422 INVALID_DOMAIN` with `Square root requires a nonnegative number.`
 
 In Go, `primary` recognizes the `sqrt` function name and uses the existing parenthesis parsing to evaluate its argument before calling `squareRoot`. That function delegates to `math.Sqrt` after checking the domain. The dedicated route validates one numeric `value` field and reuses the same arithmetic function. Missing, null, string, and out-of-range values return `400 INVALID_OPERANDS`.
+
+
+## Percentage
+
+The postfix percent operator always divides its preceding value by 100. Its meaning is the same inside sums, products, powers, and parentheses.
+
+| Expression | Result |
+| --- | ---: |
+| `50%` | 0.5 |
+| `200+10%` | 200.1 |
+| `200-10%` | 199.9 |
+| `200*10%` | 20 |
+| `200/10%` | 2000 |
+| `200+25%+25%` | 200.5 |
+| `200+(5+5)%` | 200.1 |
+| `200+10%*2` | 200.2 |
+| `4^50%` | 2 |
+| `(2^3)%` | 0.08 |
+
+To express a 10 percent increase, enter `200*(1+10%)`; for a decrease, enter `200*(1-10%)`. All results use `float64`, so some expressions have small binary rounding differences. For example, the increase can return `220.00000000000003`.
+
+Percent binds before power and applies to a parenthesized group as a whole. Repeated percent signs such as `5%%` return `400 INVALID_EXPRESSION`. The UI waits for **=** before requesting the result. Pressing **%** after a result submits that result as a standalone percentage.
+
+The dedicated endpoint `POST /api/operations/percentage` accepts `{"value":50}` and returns `{"result":0.5}`. It shares the unary request validator with square root and accepts any finite numeric value, including negative percentages.
+
+In Go, every parser method returns a `float64`. The postfix `%` branch calls the shared `percentage` function to divide its value by 100, then parsing continues with the existing precedence rules. The expression evaluator and the dedicated endpoint use that same function.

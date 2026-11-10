@@ -11,7 +11,7 @@ const editKeys = ['AC', '⌫', '=']
 const keys = [
   { value: '^', label: 'Power', tone: 'extra' },
   { value: 'sqrt(', label: 'Square root', tone: 'extra' },
-  { value: '%', label: 'Percent', tone: 'extra', unavailable: true },
+  { value: '%', label: 'Percent', tone: 'extra' },
   { value: '⌫', label: 'Backspace', tone: 'extra' },
   { value: 'AC', label: 'Clear all', tone: 'clear' },
   { value: '(', label: 'Open parenthesis', tone: 'extra' },
@@ -51,7 +51,7 @@ export function Calculator() {
       setInput(`sqrt(${previousResult})`)
     } else if (previousResult !== undefined) {
       const leftOperand = previousResult < 0 ? `(${previousResult})` : String(previousResult)
-      setInput('+−×÷^'.includes(value) ? `${leftOperand}${value}` : value)
+      setInput('+−×÷^%'.includes(value) ? `${leftOperand}${value}` : value)
     } else {
       setInput((current) => current + value)
     }
@@ -87,14 +87,14 @@ export function Calculator() {
       </div>
       {errorMessage && <p className={styles.error} role="alert">{errorMessage}</p>}
       <div className={styles.keypad}>
-        {keys.map(({ value, label, tone, unavailable }) => (
+        {keys.map(({ value, label, tone }) => (
           <button
             key={value}
             type="button"
             aria-label={label}
             data-tone={tone}
             className={styles.key}
-            disabled={unavailable || calculation.isPending ||
+            disabled={calculation.isPending ||
               (!calculation.isSuccess && !editKeys.includes(value) && encoder.encode(value).length > remainingBytes)}
             onClick={() => pressKey(value)}
           >
