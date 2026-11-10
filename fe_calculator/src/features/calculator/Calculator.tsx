@@ -26,7 +26,8 @@ const operationsBySymbol: Partial<Record<string, Operation>> = {
   '×': 'multiplication',
   '÷': 'division',
 }
-const expressionPattern = /^(\d+\.?\d*|\.\d+)([^\d.])(\d+\.?\d*|\.\d+)$/
+// A previous API result can be negative or use scientific notation.
+const expressionPattern = /^(-?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?)([+−×÷])(\d+\.?\d*|\.\d+)$/
 
 export function Calculator() {
   const [input, setInput] = useState('')
@@ -60,7 +61,7 @@ export function Calculator() {
       return
     }
 
-    const startFresh = calculation.isSuccess
+    const previousResult = calculation.data
     setInputError('')
     calculation.reset()
 
@@ -68,8 +69,10 @@ export function Calculator() {
       setInput('')
     } else if (value === '⌫') {
       setInput((current) => current.slice(0, -1))
+    } else if (previousResult !== undefined) {
+      setInput(operationsBySymbol[value] ? `${previousResult}${value}` : value)
     } else {
-      setInput((current) => (startFresh ? '' : current) + value)
+      setInput((current) => current + value)
     }
   }
 

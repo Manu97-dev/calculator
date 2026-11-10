@@ -71,6 +71,33 @@ it('submits both operands once and shows the result returned by the API', async 
   expect(screen.getByLabelText('Calculator input').textContent).toBe('4')
 })
 
+it.each([
+  [10, 7],
+  [0, -3],
+  [-2, -5],
+  [1e21, 1e21],
+])('continues from the displayed result %s when an operator is pressed', async (previous, result) => {
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce(Response.json({ result: previous }))
+    .mockResolvedValueOnce(Response.json({ result }))
+  vi.stubGlobal('fetch', fetchMock)
+  const press = renderCalculator()
+
+  await press('5', 'Add', '5', 'Equals')
+  expect((await screen.findByLabelText('Calculator result')).textContent).toBe(String(previous))
+
+  await press('Subtract', '3')
+  expect(screen.getByLabelText('Calculator input').textContent).toBe(`${previous}−3`)
+  await press('Equals')
+
+  expect((await screen.findByLabelText('Calculator result')).textContent).toBe(String(result))
+  expect(fetchMock).toHaveBeenCalledTimes(2)
+  expect(fetchMock).toHaveBeenNthCalledWith(2, '/api/operations/subtraction', expect.objectContaining({
+    method: 'POST',
+    body: JSON.stringify({ left: previous, right: 3 }),
+  }))
+})
+
 it('submits subtraction operands in entry order and displays a negative result', async () => {
   const fetchMock = vi.fn().mockResolvedValue(Response.json({ result: -9.5 }))
   vi.stubGlobal('fetch', fetchMock)
