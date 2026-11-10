@@ -1,52 +1,87 @@
-# Calculator starter
+# Full-stack calculator
 
-This repository contains a React/Vite frontend in [fe_calculator](fe_calculator/README.md) and a Go REST API in [be_calculator](be_calculator/README.md).
+A responsive React and TypeScript calculator backed by a Go REST API. It supports addition, subtraction, multiplication, division, and chained expressions with standard operator precedence.
 
-## Run both with Docker
+**Try it:** Enter `2 + 3 × 4` and press **=** to get **14**. Then press **− 3 =** to continue from that result and get **11**.
 
-From the repository root, with Docker running:
+## Run with Docker
+
+With Docker running, execute these commands from the repository root:
 
 ```sh
 docker build -t sezzle-calculator .
 docker run --rm -p 3000:3000 sezzle-calculator
 ```
 
-Open [the app](http://localhost:3000) or check the API from another terminal.
+Open [the calculator on port 3000](http://localhost:3000). The container serves the built React app and the Go API from the same origin.
 
-```sh
-curl -i http://localhost:3000/api/health
-```
+## Run locally
 
-The Dockerfile builds the frontend with npm and compiles the API with Go. The final image contains the Go executable and the built frontend. Go serves both on port 3000, so the browser can use same-origin `/api` requests. Browser navigation to client-side routes loads the React app. The API and missing Vite assets retain their own HTTP responses.
-
-## Develop locally
-
-Use Go 1.26+ and Node.js 22.16+ in the Node 22 line. Run these in separate terminals from the repository root.
+Use **Go 1.26 or newer** and **Node.js 22.16 or newer in the 22.x line**, with npm. Start each service in a separate terminal from the repository root.
 
 | Service | Command |
 | --- | --- |
-| API | `cd be_calculator && go run .` |
-| Frontend | `cd fe_calculator && npm ci && npm run dev` |
+| Go API on port 3000 | `cd be_calculator && go run .` |
+| Vite on port 5173 | `cd fe_calculator && npm ci && npm run dev` |
 
-Open [the Vite dev server](http://localhost:5173). It proxies `/api` to Go on port 3000.
+Open [the calculator on port 5173](http://localhost:5173). Vite proxies `/api` requests to Go.
 
-## Test coverage
+## API examples
 
-Run the commands below from the repository root. They print coverage in the terminal and generate detailed HTML reports.
+All examples target port 3000 and work with either setup. The UI sends the full expression to `POST /api/operations/evaluate`.
 
 ```sh
-(cd fe_calculator && npm ci && npm run test:coverage)
-
-sh be_calculator/coverage.sh
+curl -sS http://localhost:3000/api/operations/evaluate \
+  -H 'Content-Type: application/json' \
+  -d '{"expression":"2 + 3 × 4"}'
+# {"result":14}
 ```
 
-Open `fe_calculator/coverage/index.html` for React and `be_calculator/coverage/index.html` for Go. The generated reports are ignored by Git. CI prints coverage for both layers on pushes and pull requests.
+The four individual routes under `/api/operations/` are `addition`, `subtraction`, `multiplication`, and `division`. Each accepts numeric `left` and `right` fields.
 
-### Coverage report
+```sh
+curl -sS http://localhost:3000/api/operations/division \
+  -H 'Content-Type: application/json' \
+  -d '{"left":5,"right":2}'
+# {"result":2.5}
+```
+
+An invalid expression returns `400 INVALID_EXPRESSION`. Dividing by zero returns HTTP `422` and the following JSON:
+
+```json
+{"error":{"code":"DIVISION_BY_ZERO","message":"Cannot divide by zero."}}
+```
+
+See the [backend README](be_calculator/README.md) for the full error contract and more examples.
+
+## Tests and coverage
+
+After installing frontend dependencies, run these commands from the repository root:
+
+```sh
+(cd fe_calculator && npm test)
+(cd be_calculator && go test ./...)
+```
+
+To reproduce the coverage summary and generate detailed HTML reports:
+
+```sh
+(cd fe_calculator && npm run test:coverage)
+sh be_calculator/coverage.sh
+```
 
 | Layer | Statements | Branches | Functions | Lines |
 | --- | ---: | ---: | ---: | ---: |
 | React and TypeScript (Vitest V8) | 100% | 100% | 100% | 100% |
 | Go (unit and startup tests combined) | 100% | — | — | — |
 
-The frontend suite runs 28 tests, including a check that mounts the production React entry point. The Go report combines the unit-test profile with coverage from an instrumented binary that verifies startup error handling. The Go unit-test summary appears first in the terminal, followed by the combined statement total used in the table and HTML report.
+Open `fe_calculator/coverage/index.html` or `be_calculator/coverage/index.html` after running coverage. The Go script prints the unit-test summary first, then the combined total from unit tests and startup checks against the instrumented binary. GitHub Actions runs coverage for both layers.
+
+## Design decisions
+
+- **Go owns arithmetic and validation.** React manages keypad input and uses one TanStack Query mutation to submit an expression, show the result, or display a server error while keeping the input editable.
+- **One request evaluates the entire expression.** A small recursive-descent parser evaluates multiplication and division before addition and subtraction. Operators at the same precedence run left to right. The individual endpoints let clients submit two structured operands directly and share the same arithmetic functions as the parser.
+- **Numbers use `float64`.** This supports fractional division and follows ordinary binary floating-point rounding. Expressions are limited to 1,024 bytes and 32 levels of parentheses. Parentheses are accepted by the API.
+- **Scope covers the four required operations.** Exponentiation, square root, and percentage are outside the current scope.
+
+See the [frontend README](fe_calculator/README.md) for the Vite proxy and deployment configuration.
