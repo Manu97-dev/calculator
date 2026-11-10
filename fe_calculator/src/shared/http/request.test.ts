@@ -70,3 +70,34 @@ describe('request', () => {
     })
   })
 })
+
+it('rejects conflicting request bodies before fetching', async () => {
+  const fetchMock = vi.fn()
+  vi.stubGlobal('fetch', fetchMock)
+  await expect(request('/items', { body: 'raw', json: {} })).rejects.toThrow('Provide either json or body')
+  expect(fetchMock).not.toHaveBeenCalled()
+})
+
+it('preserves an explicit content type and reads structured JSON media types', async () => {
+  const headers = { 'content-type': 'application/vnd.example+json' }
+  const fetchMock = vi.fn().mockResolvedValue(new Response('{"ok":true}', { headers }))
+  vi.stubGlobal('fetch', fetchMock)
+
+  await expect(request('/items', { method: 'POST', json: {}, headers })).resolves.toEqual({ ok: true })
+  expect(fetchMock.mock.calls[0][1].headers.get('content-type')).toBe(headers['content-type'])
+})
+
+it('uses the HTTP reason phrase when provided', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('Unavailable', {
+    status: 503,
+    statusText: 'Service Unavailable',
+  })))
+  await expect(request('/items')).rejects.toThrow('HTTP 503 Service Unavailable')
+})
+
+it('rejects malformed JSON in a successful response', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('invalid', {
+    headers: { 'content-type': 'application/json' },
+  })))
+  await expect(request('/items')).rejects.toBeInstanceOf(SyntaxError)
+})

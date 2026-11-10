@@ -41,6 +41,7 @@ func TestOperations(t *testing.T) {
 		{"signed decimals and scientific notation", evaluatePath, `{"expression":"-2.5*-2e+1 + .5"}`, 50.5},
 		{"leading zero is decimal", evaluatePath, `{"expression":"08+1"}`, 9},
 		{"fractional quotient", evaluatePath, `{"expression":"5/2"}`, 2.5},
+		{"unary plus on a group", evaluatePath, `{"expression":"2*+(3+4)"}`, 14},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			request := httptest.NewRequest(http.MethodPost, tc.path, strings.NewReader(tc.body))
@@ -98,6 +99,7 @@ func TestOperationErrors(t *testing.T) {
 		{"expression nesting limit", evaluatePath, `{"expression":"` + strings.Repeat("(", maxExpressionDepth+1) + "1" + strings.Repeat(")", maxExpressionDepth+1) + `"}`, 400, "INVALID_EXPRESSION"},
 		{"divide by zero in group", evaluatePath, `{"expression":"2 + 3/(1-1)"}`, 422, "DIVISION_BY_ZERO"},
 		{"intermediate overflow", evaluatePath, `{"expression":"1e308*2*0"}`, 422, "RESULT_OUT_OF_RANGE"},
+		{"overflowing literal", evaluatePath, `{"expression":"1e309+2"}`, 422, "RESULT_OUT_OF_RANGE"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			request := httptest.NewRequest(http.MethodPost, tc.path, strings.NewReader(tc.body))

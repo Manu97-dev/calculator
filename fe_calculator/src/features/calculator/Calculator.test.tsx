@@ -227,3 +227,24 @@ it.each([
 
   expect((await screen.findByRole('alert')).textContent).toBe('Couldn’t calculate the result. Try again.')
 })
+
+it('ignores Equals on an empty display and after a successful calculation', async () => {
+  const fetchMock = vi.fn().mockResolvedValue(Response.json({ result: 3 }))
+  vi.stubGlobal('fetch', fetchMock)
+  const press = renderCalculator()
+
+  await press('Equals')
+  expect(fetchMock).not.toHaveBeenCalled()
+  await press('1', 'Add', '2', 'Equals')
+  await screen.findByLabelText('Calculator result')
+  await press('Equals')
+  expect(fetchMock).toHaveBeenCalledTimes(1)
+})
+
+it('shows a generic message for a plain-text HTTP error', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('Bad gateway', { status: 502 })))
+  const press = renderCalculator()
+
+  await press('1', 'Add', '2', 'Equals')
+  expect((await screen.findByRole('alert')).textContent).toBe('Couldn’t calculate the result. Try again.')
+})

@@ -21,7 +21,7 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
-      - run: npm test
+      - run: npm run test:coverage
       - run: npm run build
 
   backend:
@@ -36,4 +36,4 @@ jobs:
           go-version-file: be_calculator/go.mod
           cache: false
       - run: go vet ./...
-      - run: go test ./...
+      - run: sh coverage.sh

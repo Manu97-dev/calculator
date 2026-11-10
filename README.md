@@ -29,3 +29,24 @@ Use Go 1.26+ and Node.js 22.16+ in the Node 22 line. Run these in separate termi
 | Frontend | `cd fe_calculator && npm ci && npm run dev` |
 
 Open [the Vite dev server](http://localhost:5173). It proxies `/api` to Go on port 3000.
+
+## Test coverage
+
+Run the commands below from the repository root. They print coverage in the terminal and generate detailed HTML reports.
+
+```sh
+(cd fe_calculator && npm ci && npm run test:coverage)
+
+sh be_calculator/coverage.sh
+```
+
+Open `fe_calculator/coverage/index.html` for React and `be_calculator/coverage/index.html` for Go. The generated reports are ignored by Git. CI prints coverage for both layers on pushes and pull requests.
+
+### Coverage report
+
+| Layer | Statements | Branches | Functions | Lines |
+| --- | ---: | ---: | ---: | ---: |
+| React and TypeScript (Vitest V8) | 100% | 100% | 100% | 100% |
+| Go (unit and startup tests combined) | 100% | — | — | — |
+
+The frontend suite runs 28 tests, including a check that mounts the production React entry point. The Go report combines the unit-test profile with coverage from an instrumented binary that verifies startup error handling. The Go unit-test summary appears first in the terminal, followed by the combined statement total used in the table and HTML report.

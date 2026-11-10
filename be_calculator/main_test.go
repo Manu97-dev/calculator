@@ -2,12 +2,29 @@ package main
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
 )
+
+type disconnectedResponse struct {
+	*httptest.ResponseRecorder
+}
+
+func (disconnectedResponse) Write([]byte) (int, error) {
+	return 0, io.ErrClosedPipe
+}
+
+func TestWriteJSONWithDisconnectedClient(t *testing.T) {
+	response := disconnectedResponse{httptest.NewRecorder()}
+	writeJSON(response, http.StatusOK, healthResponse{Status: "ok"})
+	if response.Code != http.StatusOK || response.Header().Get("Content-Type") != "application/json" {
+		t.Fatalf("unexpected response headers after write failure: %v", response.Result())
+	}
+}
 
 func TestHealthRoute(t *testing.T) {
 	router := newRouter("")

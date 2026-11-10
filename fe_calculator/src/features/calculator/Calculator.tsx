@@ -26,8 +26,6 @@ export function Calculator() {
   const errorMessage = calculation.error && calculationErrorMessage(calculation.error)
 
   function pressKey(value: string) {
-    if (calculation.isPending) return
-
     if (value === '=') {
       if (input && !calculation.isSuccess) calculation.mutate(input)
       return
