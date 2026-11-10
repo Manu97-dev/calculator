@@ -8,8 +8,7 @@ export function HomePage() {
         <p className={styles.eyebrow}>Everyday math</p>
         <h1>Calculator</h1>
         <p className={styles.description}>
-          Add, subtract, multiply, or divide. Use the top row for powers, square roots,
-          and percentages.
+          Enter two numbers with + between them, then press =. Other operations are coming later.
         </p>
       </header>
       <Calculator />

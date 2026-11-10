@@ -1,25 +1,119 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, expect, it } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { Calculator } from './Calculator'
 
-afterEach(cleanup)
+beforeEach(() => vi.stubEnv('VITE_API_BASE_URL', ''))
+afterEach(() => {
+  cleanup()
+  vi.unstubAllEnvs()
+  vi.unstubAllGlobals()
+})
 
-it('enters and edits keypad input without evaluating it', async () => {
+function renderCalculator() {
   const user = userEvent.setup()
-  render(<Calculator />)
+  const queryClient = new QueryClient({ defaultOptions: { mutations: { gcTime: Infinity } } })
 
+  render(
+    <QueryClientProvider client={queryClient}>
+      <Calculator />
+    </QueryClientProvider>,
+  )
+
+  return async (...names: string[]) => {
+    for (const name of names) {
+      await user.click(screen.getByRole('button', { name }))
+    }
+  }
+}
+
+it('enters and edits keypad input without evaluating it until Equals is pressed', async () => {
+  const fetchMock = vi.fn()
+  vi.stubGlobal('fetch', fetchMock)
+  const press = renderCalculator()
   const display = screen.getByLabelText('Calculator input')
+
   expect(display.textContent).toBe('0')
 
-  for (const name of ['1', 'Add', '2', 'Equals']) {
-    await user.click(screen.getByRole('button', { name }))
-  }
-  expect(display.textContent).toBe('1+2=')
-
-  await user.click(screen.getByRole('button', { name: 'Backspace' }))
+  await press('1', 'Add', '2')
   expect(display.textContent).toBe('1+2')
 
-  await user.click(screen.getByRole('button', { name: 'Clear all' }))
+  await press('Backspace')
+  expect(display.textContent).toBe('1+')
+
+  await press('Clear all')
   expect(display.textContent).toBe('0')
+  expect(fetchMock).not.toHaveBeenCalled()
+})
+
+it('submits both operands once and shows the result returned by the API', async () => {
+  let complete!: (response: Response) => void
+  const fetchMock = vi.fn(() => new Promise<Response>((resolve) => { complete = resolve }))
+  vi.stubGlobal('fetch', fetchMock)
+  const press = renderCalculator()
+
+  await press('1', '2', 'Decimal point', '5', 'Add', '3', 'Equals')
+  await screen.findByText('Calculating…')
+  await press('Equals', 'Clear all')
+
+  expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/operations/addition', expect.objectContaining({
+    method: 'POST',
+    body: JSON.stringify({ left: 12.5, right: 3 }),
+  }))
+  expect(screen.getByLabelText('Calculator input').textContent).toBe('12.5+3')
+
+  complete(Response.json({ result: 42 }))
+  expect((await screen.findByLabelText('Calculator result')).textContent).toBe('42')
+  expect(screen.getByText('12.5+3 =')).toBeDefined()
+
+  await press('4')
+  expect(screen.getByLabelText('Calculator input').textContent).toBe('4')
+})
+
+it('rejects an invalid expression before making a request', async () => {
+  const fetchMock = vi.fn()
+  vi.stubGlobal('fetch', fetchMock)
+  const press = renderCalculator()
+
+  await press('1', 'Add', '2', 'Add', '3', 'Equals')
+
+  expect(screen.getByRole('alert').textContent).toContain('Enter two numbers')
+  expect(fetchMock).not.toHaveBeenCalled()
+  await press('Backspace')
+  expect(screen.queryByRole('alert')).toBeNull()
+})
+
+it('shows the API error and allows retrying the same expression', async () => {
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce(Response.json({
+      error: { code: 'RESULT_OUT_OF_RANGE', message: 'The sum is out of range.' },
+    }, { status: 422 }))
+    .mockResolvedValueOnce(Response.json({ result: 3 }))
+  vi.stubGlobal('fetch', fetchMock)
+  const press = renderCalculator()
+
+  await press('1', 'Add', '2', 'Equals')
+  expect((await screen.findByRole('alert')).textContent).toBe('The sum is out of range.')
+  expect(screen.getByLabelText('Calculator input').textContent).toBe('1+2')
+
+  await press('Equals')
+  expect((await screen.findByLabelText('Calculator result')).textContent).toBe('3')
+  expect(screen.queryByRole('alert')).toBeNull()
+  expect(fetchMock).toHaveBeenCalledTimes(2)
+})
+
+it.each([
+  ['a network failure', () => Promise.reject(new TypeError('Network error'))],
+  ['an invalid result', () => Promise.resolve(Response.json({ result: '3' }))],
+  ['an invalid error envelope', () => Promise.resolve(Response.json({
+    error: { code: false, message: 'Unvalidated message' },
+  }, { status: 400 }))],
+])('shows a generic message for %s', async (_scenario, respond) => {
+  vi.stubGlobal('fetch', vi.fn(respond))
+  const press = renderCalculator()
+
+  await press('1', 'Add', '2', 'Equals')
+
+  expect((await screen.findByRole('alert')).textContent).toBe('Couldn’t calculate the sum. Try again.')
 })

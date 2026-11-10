@@ -16,12 +16,17 @@ type healthResponse struct {
 }
 
 func newRouter(staticDir string) *http.ServeMux {
+	api := http.NewServeMux()
+	api.HandleFunc("GET /api/health", health)
+	registerOperations(api)
+
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /api/health", health)
+	mux.HandleFunc("/api", http.NotFound)
+	mux.Handle("/api/", api)
 	if staticDir != "" {
-		mux.HandleFunc("GET /api", http.NotFound)
-		mux.HandleFunc("GET /api/", http.NotFound)
-		mux.Handle("GET /", frontend(staticDir))
+		spa := http.NewServeMux()
+		spa.Handle("GET /", frontend(staticDir))
+		mux.Handle("/", spa)
 	}
 	return mux
 }
@@ -46,9 +51,14 @@ func frontend(dir string) http.Handler {
 }
 
 func health(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, healthResponse{Status: "ok"})
+}
+
+func writeJSON(w http.ResponseWriter, status int, body any) {
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(healthResponse{Status: "ok"}); err != nil {
-		log.Printf("write health response: %v", err)
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(body); err != nil {
+		log.Printf("write JSON response: %v", err)
 	}
 }
 

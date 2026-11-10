@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, useLocation } from 'react-router-dom'
@@ -12,12 +13,15 @@ function CurrentPath() {
 
 it('recovers from an unknown route by navigating back to the home page', async () => {
   const user = userEvent.setup()
+  const queryClient = new QueryClient()
 
   render(
-    <MemoryRouter initialEntries={['/unknown']}>
-      <CurrentPath />
-      <AppRoutes />
-    </MemoryRouter>,
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/unknown']}>
+        <CurrentPath />
+        <AppRoutes />
+      </MemoryRouter>
+    </QueryClientProvider>,
   )
 
   const backLink = screen.getByRole('link', { name: 'Back to home' })

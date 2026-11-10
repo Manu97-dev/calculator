@@ -1,6 +1,6 @@
 # Calculator API
 
-A Go REST API starter with one endpoint. `GET /api/health` returns `200 OK` and `{"status":"ok"}`. The endpoint confirms the server can accept and answer HTTP requests.
+A Go REST API for calculator operations. `GET /api/health` returns `200 OK` and `{"status":"ok"}`. The endpoint confirms the server can accept and answer HTTP requests.
 
 ## Run locally
 
@@ -11,6 +11,31 @@ curl -i http://localhost:3000/api/health
 ```
 
 The frontend's Vite proxy forwards `/api` to port `3000`. To run the API by itself on a different port, use `PORT=3001 go run .`. The server listens on all interfaces.
+
+## Add two numbers
+
+```sh
+curl -i http://localhost:3000/api/operations/addition \
+  -H 'Content-Type: application/json' \
+  -d '{"left":2.5,"right":-1}'
+```
+
+`POST /api/operations/addition` returns `200 OK` with `{"result":1.5}`. Both fields must be finite JSON numbers. Go uses `float64`, the same binary precision as JavaScript's `Number`.
+
+| HTTP status | Error code | When it occurs |
+| --- | --- | --- |
+| 400 | `INVALID_JSON` | The body does not contain exactly one JSON object. |
+| 400 | `INVALID_OPERANDS` | An operand is missing, null, not a number, or too large in magnitude for `float64`. |
+| 413 | `REQUEST_TOO_LARGE` | The request body exceeds 4 KiB. |
+| 422 | `RESULT_OUT_OF_RANGE` | Adding two valid operands produces an infinite result. |
+
+Errors from the handler use `{"error":{"code":"INVALID_OPERANDS","message":"Both left and right must be finite JSON numbers."}}`.
+
+### How the addition handler works
+
+1. **Route the request.** `newRouter` sends `/api/` requests to a separate `ServeMux`, similar to mounting an Express router with `app.use('/api', router)`. Go preserves the full request path in the nested router, so `registerOperations` uses `POST /api/operations/addition` as the route pattern. Keeping the API router separate ensures that a wrong HTTP method gets a `405` even when the SPA fallback is enabled. [Go HTTP package](https://pkg.go.dev/net/http#ServeMux)
+2. **Read and validate JSON.** `http.MaxBytesReader` caps the body before the handler parses it, like the `limit` option on Express's `express.json()`. `json.Unmarshal` checks that the whole body is valid JSON. Decoding object fields as `json.RawMessage` keeps invalid JSON separate from valid JSON that contains bad operands. The handler then decodes each operand to `*float64` so it can distinguish zero from a missing or null value. Go's built-in decoder checks JSON type and numeric range without a validation dependency. [Go JSON package](https://pkg.go.dev/encoding/json#Unmarshal)
+3. **Return the result.** The handler adds the operands, checks the sum with `math.IsInf`, and writes the status and a typed JSON response. The equivalent in Express would use `Number.isFinite` to check the sum and `res.status(...).json(...)` to send the response. An explicit range check makes overflow return a clear error before JSON encoding. [Go math package](https://pkg.go.dev/math#IsInf)
 
 ## From Node.js to Go, step by step
 
