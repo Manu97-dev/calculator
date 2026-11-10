@@ -47,7 +47,29 @@ func registerOperations(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/operations/multiplication", operationHandler(binaryOperations['*']))
 	mux.HandleFunc("POST /api/operations/division", operationHandler(binaryOperations['/']))
 	mux.HandleFunc("POST /api/operations/exponentiation", operationHandler(binaryOperations['^']))
+	mux.HandleFunc("POST /api/operations/square-root", squareRootHandler)
 	mux.HandleFunc("POST /api/operations/evaluate", evaluate)
+}
+
+func squareRoot(value float64) (float64, *apiError) {
+	if value < 0 {
+		return 0, &apiError{Code: "INVALID_DOMAIN", Message: "Square root requires a nonnegative number."}
+	}
+	return math.Sqrt(value), nil
+}
+
+func squareRootHandler(w http.ResponseWriter, r *http.Request) {
+	fields, ok := readOperationFields(w, r)
+	if !ok {
+		return
+	}
+	value, valid := parseOperand(fields["value"])
+	if !valid {
+		writeAPIError(w, http.StatusBadRequest, "INVALID_OPERANDS", "Value must be a finite JSON number.")
+		return
+	}
+	result, calculationError := squareRoot(value)
+	writeOperationResult(w, result, calculationError)
 }
 
 func operationHandler(calculate func(left, right float64) (float64, *apiError)) http.HandlerFunc {

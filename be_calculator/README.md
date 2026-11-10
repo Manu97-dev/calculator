@@ -81,3 +81,17 @@ The expression endpoint accepts `^` for exponentiation, including chains such as
 The parser adds a `power` level between numeric values and unary signs. Its right operand calls back into the signed-operand parser, allowing `2^-2` and making powers group right to left. This is the same recursion you could use in JavaScript. `primary` now reads literals and parentheses, while `operand` handles the sign. Consequently, `-2^2` means `-(2^2)` and `(-2)^2` means `4`. Parenthesis and power recursion share the 32-level depth budget.
 
 Arithmetic uses Go's `math.Pow`. This calculator defines `0^0 = 1`. A negative base with a fractional exponent produces `422 INVALID_DOMAIN` because the calculator returns real numbers. Zero to a negative exponent returns `422 DIVISION_BY_ZERO`; an overflowing power returns `422 RESULT_OUT_OF_RANGE`. Underflow retains the existing floating-point behavior and may round to zero.
+
+
+## Square root
+
+```sh
+curl -sS http://localhost:3000/api/operations/square-root \
+  -H 'Content-Type: application/json' \
+  -d '{"value":9}'
+# {"result":3}
+```
+
+The expression endpoint accepts `sqrt(expression)`, so `2+sqrt(9+7)*3` returns `14`. The function requires parentheses, and nested calls share the parser's depth budget. Square root returns the principal, nonnegative root. A negative input returns `422 INVALID_DOMAIN` with `Square root requires a nonnegative number.`
+
+In Go, `primary` recognizes the `sqrt` function name and uses the existing parenthesis parsing to evaluate its argument before calling `squareRoot`. That function delegates to `math.Sqrt` after checking the domain. The dedicated route validates one numeric `value` field and reuses the same arithmetic function. Missing, null, string, and out-of-range values return `400 INVALID_OPERANDS`.

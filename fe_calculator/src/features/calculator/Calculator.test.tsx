@@ -314,3 +314,43 @@ it('supports grouped negative bases and displays power domain errors', async () 
   expect((await screen.findByRole('alert')).textContent).toBe('This power has no real-number result.')
   expect(screen.getByLabelText('Calculator input').textContent).toBe('(−2)^0.5')
 })
+
+it('enters a square root within a chain and wraps the displayed result for another root', async () => {
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce(Response.json({ result: 16 }))
+    .mockResolvedValueOnce(Response.json({ result: 4 }))
+  vi.stubGlobal('fetch', fetchMock)
+  const press = renderCalculator()
+
+  await press('Square root', '9', 'Close parenthesis', 'Add', '1', '3', 'Equals')
+  expect((await screen.findByLabelText('Calculator result')).textContent).toBe('16')
+  expect(fetchMock).toHaveBeenNthCalledWith(1, '/api/operations/evaluate', expect.objectContaining({
+    body: JSON.stringify({ expression: 'sqrt(9)+13' }),
+  }))
+
+  await press('Square root')
+  expect(screen.getByLabelText('Calculator input').textContent).toBe('sqrt(16)')
+  await press('Equals')
+  expect((await screen.findByLabelText('Calculator result')).textContent).toBe('4')
+  expect(fetchMock).toHaveBeenNthCalledWith(2, '/api/operations/evaluate', expect.objectContaining({
+    body: JSON.stringify({ expression: 'sqrt(16)' }),
+  }))
+})
+
+it('deletes an empty square-root insertion as one keypad action', async () => {
+  const press = renderCalculator()
+  await press('2', 'Add', 'Square root')
+  expect(screen.getByLabelText('Calculator input').textContent).toBe('2+sqrt(')
+  await press('Backspace')
+  expect(screen.getByLabelText('Calculator input').textContent).toBe('2+')
+})
+
+it('shows square-root domain errors and keeps the input editable', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({
+    error: { code: 'INVALID_DOMAIN', message: 'Square root requires a nonnegative number.' },
+  }, { status: 422 })))
+  const press = renderCalculator()
+  await press('Square root', 'Subtract', '1', 'Close parenthesis', 'Equals')
+  expect((await screen.findByRole('alert')).textContent).toBe('Square root requires a nonnegative number.')
+  expect(screen.getByLabelText('Calculator input').textContent).toBe('sqrt(−1)')
+})

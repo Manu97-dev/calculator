@@ -102,6 +102,15 @@ func (p *expressionParser) power() float64 {
 }
 
 func (p *expressionParser) primary() float64 {
+	p.peek()
+	isSquareRoot := strings.HasPrefix(p.remaining, "sqrt")
+	if isSquareRoot {
+		p.remaining = p.remaining[4:]
+		if p.peek() != '(' {
+			p.invalid = true
+			return 0
+		}
+	}
 	if p.peek() == '(' && p.depth < maxExpressionDepth {
 		p.remaining = p.remaining[1:]
 		p.depth++
@@ -112,6 +121,9 @@ func (p *expressionParser) primary() float64 {
 			return 0
 		}
 		p.remaining = p.remaining[1:]
+		if isSquareRoot && !p.invalid && p.calculationError == nil {
+			value, p.calculationError = squareRoot(value)
+		}
 		return value
 	}
 

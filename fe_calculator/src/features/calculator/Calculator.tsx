@@ -10,7 +10,7 @@ const editKeys = ['AC', '⌫', '=']
 
 const keys = [
   { value: '^', label: 'Power', tone: 'extra' },
-  { value: '√', label: 'Square root', tone: 'extra', unavailable: true },
+  { value: 'sqrt(', label: 'Square root', tone: 'extra' },
   { value: '%', label: 'Percent', tone: 'extra', unavailable: true },
   { value: '⌫', label: 'Backspace', tone: 'extra' },
   { value: 'AC', label: 'Clear all', tone: 'clear' },
@@ -46,7 +46,9 @@ export function Calculator() {
     if (value === 'AC') {
       setInput('')
     } else if (value === '⌫') {
-      setInput((current) => current.slice(0, -1))
+      setInput((current) => current.endsWith('sqrt(') ? current.slice(0, -5) : current.slice(0, -1))
+    } else if (value === 'sqrt(' && previousResult !== undefined) {
+      setInput(`sqrt(${previousResult})`)
     } else if (previousResult !== undefined) {
       const leftOperand = previousResult < 0 ? `(${previousResult})` : String(previousResult)
       setInput('+−×÷^'.includes(value) ? `${leftOperand}${value}` : value)
@@ -96,7 +98,7 @@ export function Calculator() {
               (!calculation.isSuccess && !editKeys.includes(value) && encoder.encode(value).length > remainingBytes)}
             onClick={() => pressKey(value)}
           >
-            {value}
+            {value === 'sqrt(' ? '√' : value}
           </button>
         ))}
       </div>
