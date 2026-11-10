@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import styles from './Calculator.module.scss'
 
 const keys = [
@@ -18,11 +19,23 @@ const keys = [
 ]
 
 export function Calculator() {
+  const [input, setInput] = useState('')
+
+  function pressKey(value: string) {
+    if (value === 'AC') {
+      setInput('')
+    } else if (value === '⌫') {
+      setInput((current) => current.slice(0, -1))
+    } else {
+      setInput((current) => current + value)
+    }
+  }
+
   return (
     <section className={styles.calculator} aria-label="Calculator keypad">
       <div className={styles.display}>
-        <span className={styles.expression}>Design preview</span>
-        <output aria-label="Calculator result" className={styles.result}>0</output>
+        <span className={styles.expression}>Input</span>
+        <output aria-label="Calculator input" className={styles.result}>{input || '0'}</output>
       </div>
       <div className={styles.keypad}>
         {keys.map(({ value, label, tone }) => (
@@ -32,7 +45,7 @@ export function Calculator() {
             aria-label={label}
             data-tone={tone}
             className={styles.key}
-            disabled
+            onClick={() => pressKey(value)}
           >
             {value}
           </button>
