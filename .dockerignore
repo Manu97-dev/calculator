@@ -1,0 +1,10 @@
+.git
+**/.git
+**/node_modules
+**/dist
+**/dist-ssr
+**/bin
+**/coverage
+**/.env*
+**/*.log
+**/.DS_Store

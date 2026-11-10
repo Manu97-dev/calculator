@@ -1,0 +1,24 @@
+.page {
+  display: grid;
+  min-block-size: 100dvh;
+  place-items: center;
+  padding: clamp(1rem, 5vw, 3rem);
+}
+
+.panel {
+  inline-size: min(100%, 38rem);
+  padding: clamp(1.5rem, 5vw, 3rem);
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  background: var(--color-surface);
+
+  h1 {
+    margin: 0;
+    font-size: clamp(1.75rem, 6vw, 2.75rem);
+    line-height: 1.15;
+  }
+
+  p {
+    color: var(--color-muted);
+  }
+}

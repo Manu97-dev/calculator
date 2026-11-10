@@ -1,0 +1,29 @@
+:root {
+  font-family: system-ui, sans-serif;
+  line-height: 1.5;
+  --color-canvas: #f3f5f9;
+  --color-surface: #fff;
+  --color-text: #17243a;
+  --color-muted: #495b73;
+  --color-border: #d6deea;
+  --color-accent: #174ca9;
+  background: var(--color-canvas);
+  color: var(--color-text);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+a {
+  color: var(--color-accent);
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 4px;
+}
