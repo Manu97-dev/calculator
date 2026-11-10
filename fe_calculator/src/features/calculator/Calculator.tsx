@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query'
 import { useState } from 'react'
-import { addOperands, additionErrorMessage } from './addition'
+import { calculate, calculationErrorMessage } from './operations'
 import styles from './Calculator.module.scss'
 
 const keys = [
@@ -13,48 +13,49 @@ const keys = [
   { value: '7' }, { value: '8' }, { value: '9' },
   { value: '×', label: 'Multiply', tone: 'operator', unavailable: true },
   { value: '4' }, { value: '5' }, { value: '6' },
-  { value: '−', label: 'Subtract', tone: 'operator', unavailable: true },
+  { value: '−', label: 'Subtract', tone: 'operator' },
   { value: '1' }, { value: '2' }, { value: '3' },
   { value: '+', label: 'Add', tone: 'operator' },
   { value: '0', tone: 'zero' }, { value: '.', label: 'Decimal point' },
   { value: '=', label: 'Equals', tone: 'equals' },
 ]
 
-const additionExpression = /^(\d+\.?\d*|\.\d+)\+(\d+\.?\d*|\.\d+)$/
+const expressionPattern = /^(\d+\.?\d*|\.\d+)([+−])(\d+\.?\d*|\.\d+)$/
 
 export function Calculator() {
   const [input, setInput] = useState('')
   const [inputError, setInputError] = useState('')
-  const addition = useMutation({ mutationFn: addOperands })
-  const errorMessage = inputError || (addition.error && additionErrorMessage(addition.error))
+  const calculation = useMutation({ mutationFn: calculate })
+  const errorMessage = inputError || (calculation.error && calculationErrorMessage(calculation.error))
 
   function pressKey(value: string) {
-    if (addition.isPending) return
+    if (calculation.isPending) return
 
     if (value === '=') {
-      if (addition.isSuccess) return
+      if (calculation.isSuccess) return
 
-      const operands = additionExpression.exec(input)
-      if (!operands) {
-        setInputError('Enter two numbers with one plus sign, such as 12.5+3.')
+      const expression = expressionPattern.exec(input)
+      if (!expression) {
+        setInputError('Enter two numbers with one + or − between them.')
         return
       }
 
-      const left = Number(operands[1])
-      const right = Number(operands[2])
+      const [, leftInput, operator, rightInput] = expression
+      const left = Number(leftInput)
+      const right = Number(rightInput)
       if (!Number.isFinite(left) || !Number.isFinite(right)) {
         setInputError('Enter smaller numbers.')
         return
       }
 
       setInputError('')
-      addition.mutate({ left, right })
+      calculation.mutate({ operation: operator === '+' ? 'addition' : 'subtraction', left, right })
       return
     }
 
-    const startFresh = addition.isSuccess
+    const startFresh = calculation.isSuccess
     setInputError('')
-    addition.reset()
+    calculation.reset()
 
     if (value === 'AC') {
       setInput('')
@@ -68,14 +69,14 @@ export function Calculator() {
   return (
     <section className={styles.calculator} aria-label="Calculator keypad">
       <div className={styles.display}>
-        <span className={styles.expression}>{addition.isSuccess ? `${input} =` : 'Input'}</span>
+        <span className={styles.expression}>{calculation.isSuccess ? `${input} =` : 'Input'}</span>
         <output
-          aria-label={addition.isSuccess ? 'Calculator result' : 'Calculator input'}
+          aria-label={calculation.isSuccess ? 'Calculator result' : 'Calculator input'}
           className={styles.result}
         >
-          {addition.isSuccess ? addition.data : input || '0'}
+          {calculation.isSuccess ? calculation.data : input || '0'}
         </output>
-        {addition.isPending && <span role="status">Calculating…</span>}
+        {calculation.isPending && <span role="status">Calculating…</span>}
       </div>
       {errorMessage && <p className={styles.error} role="alert">{errorMessage}</p>}
       <div className={styles.keypad}>
@@ -86,7 +87,7 @@ export function Calculator() {
             aria-label={label}
             data-tone={tone}
             className={styles.key}
-            disabled={unavailable || addition.isPending}
+            disabled={unavailable || calculation.isPending}
             onClick={() => pressKey(value)}
           >
             {value}

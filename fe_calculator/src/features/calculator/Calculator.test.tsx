@@ -71,12 +71,27 @@ it('submits both operands once and shows the result returned by the API', async 
   expect(screen.getByLabelText('Calculator input').textContent).toBe('4')
 })
 
-it('rejects an invalid expression before making a request', async () => {
+it('submits subtraction operands in entry order and displays a negative result', async () => {
+  const fetchMock = vi.fn().mockResolvedValue(Response.json({ result: -9.5 }))
+  vi.stubGlobal('fetch', fetchMock)
+  const press = renderCalculator()
+
+  await press('3', 'Subtract', '1', '2', 'Decimal point', '5', 'Equals')
+
+  expect((await screen.findByLabelText('Calculator result')).textContent).toBe('-9.5')
+  expect(screen.getByText('3−12.5 =')).toBeDefined()
+  expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/operations/subtraction', expect.objectContaining({
+    method: 'POST',
+    body: JSON.stringify({ left: 3, right: 12.5 }),
+  }))
+})
+
+it.each(['Add', 'Subtract'])('rejects a second operator (%s) before making a request', async (operator) => {
   const fetchMock = vi.fn()
   vi.stubGlobal('fetch', fetchMock)
   const press = renderCalculator()
 
-  await press('1', 'Add', '2', 'Add', '3', 'Equals')
+  await press('1', 'Add', '2', operator, '3', 'Equals')
 
   expect(screen.getByRole('alert').textContent).toContain('Enter two numbers')
   expect(fetchMock).not.toHaveBeenCalled()
@@ -115,5 +130,5 @@ it.each([
 
   await press('1', 'Add', '2', 'Equals')
 
-  expect((await screen.findByRole('alert')).textContent).toBe('Couldn’t calculate the sum. Try again.')
+  expect((await screen.findByRole('alert')).textContent).toBe('Couldn’t calculate the result. Try again.')
 })

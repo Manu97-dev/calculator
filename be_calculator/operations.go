@@ -10,7 +10,7 @@ import (
 
 const maxOperationBodyBytes = 4 * 1024
 
-type additionResponse struct {
+type operationResponse struct {
 	Result float64 `json:"result"`
 }
 
@@ -20,35 +20,42 @@ type apiError struct {
 }
 
 func registerOperations(mux *http.ServeMux) {
-	mux.HandleFunc("POST /api/operations/addition", add)
+	mux.HandleFunc("POST /api/operations/addition", operationHandler(func(left, right float64) float64 {
+		return left + right
+	}))
+	mux.HandleFunc("POST /api/operations/subtraction", operationHandler(func(left, right float64) float64 {
+		return left - right
+	}))
 }
 
-func add(w http.ResponseWriter, r *http.Request) {
-	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxOperationBodyBytes))
-	var sizeError *http.MaxBytesError
-	if errors.As(err, &sizeError) {
-		writeAPIError(w, http.StatusRequestEntityTooLarge, "REQUEST_TOO_LARGE", "The request body must be 4 KiB or smaller.")
-		return
-	}
-	var fields map[string]json.RawMessage
-	if err != nil || json.Unmarshal(body, &fields) != nil || fields == nil {
-		writeAPIError(w, http.StatusBadRequest, "INVALID_JSON", "Send a single JSON object.")
-		return
-	}
+func operationHandler(calculate func(left, right float64) float64) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxOperationBodyBytes))
+		var sizeError *http.MaxBytesError
+		if errors.As(err, &sizeError) {
+			writeAPIError(w, http.StatusRequestEntityTooLarge, "REQUEST_TOO_LARGE", "The request body must be 4 KiB or smaller.")
+			return
+		}
+		var fields map[string]json.RawMessage
+		if err != nil || json.Unmarshal(body, &fields) != nil || fields == nil {
+			writeAPIError(w, http.StatusBadRequest, "INVALID_JSON", "Send a single JSON object.")
+			return
+		}
 
-	left, leftOK := parseOperand(fields["left"])
-	right, rightOK := parseOperand(fields["right"])
-	if !leftOK || !rightOK {
-		writeAPIError(w, http.StatusBadRequest, "INVALID_OPERANDS", "Both left and right must be finite JSON numbers.")
-		return
-	}
+		left, leftOK := parseOperand(fields["left"])
+		right, rightOK := parseOperand(fields["right"])
+		if !leftOK || !rightOK {
+			writeAPIError(w, http.StatusBadRequest, "INVALID_OPERANDS", "Both left and right must be finite JSON numbers.")
+			return
+		}
 
-	result := left + right
-	if math.IsInf(result, 0) {
-		writeAPIError(w, http.StatusUnprocessableEntity, "RESULT_OUT_OF_RANGE", "The result is outside the supported numeric range.")
-		return
+		result := calculate(left, right)
+		if math.IsInf(result, 0) {
+			writeAPIError(w, http.StatusUnprocessableEntity, "RESULT_OUT_OF_RANGE", "The result is outside the supported numeric range.")
+			return
+		}
+		writeJSON(w, http.StatusOK, operationResponse{Result: result})
 	}
-	writeJSON(w, http.StatusOK, additionResponse{Result: result})
 }
 
 func parseOperand(raw json.RawMessage) (float64, bool) {

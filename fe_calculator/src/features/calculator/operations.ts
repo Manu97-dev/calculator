@@ -1,9 +1,13 @@
 import { HttpError, request } from '../../shared/http/request'
 
-export type AdditionOperands = { left: number; right: number }
+type Operation = 'addition' | 'subtraction'
+type OperationRequest = { operation: Operation; left: number; right: number }
 
-export async function addOperands(operands: AdditionOperands): Promise<number> {
-  const response = await request('/operations/addition', { method: 'POST', json: operands })
+export async function calculate({ operation, left, right }: OperationRequest): Promise<number> {
+  const response = await request(`/operations/${operation}`, {
+    method: 'POST',
+    json: { left, right },
+  })
 
   if (
     typeof response === 'object' && response !== null && 'result' in response &&
@@ -12,10 +16,10 @@ export async function addOperands(operands: AdditionOperands): Promise<number> {
     return response.result
   }
 
-  throw new Error('Invalid addition response')
+  throw new Error('Invalid calculation response')
 }
 
-export function additionErrorMessage(error: Error): string {
+export function calculationErrorMessage(error: Error): string {
   if (error instanceof HttpError) {
     const body = error.body
     if (typeof body === 'object' && body !== null && 'error' in body) {
@@ -30,5 +34,5 @@ export function additionErrorMessage(error: Error): string {
     }
   }
 
-  return 'Couldn’t calculate the sum. Try again.'
+  return 'Couldn’t calculate the result. Try again.'
 }
