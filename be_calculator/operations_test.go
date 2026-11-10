@@ -13,6 +13,7 @@ const (
 	subtractionPath    = "/api/operations/subtraction"
 	multiplicationPath = "/api/operations/multiplication"
 	divisionPath       = "/api/operations/division"
+	evaluatePath       = "/api/operations/evaluate"
 )
 
 func TestOperations(t *testing.T) {
@@ -33,6 +34,13 @@ func TestOperations(t *testing.T) {
 		{"divide left by right", divisionPath, `{"left":3,"right":12}`, 0.25},
 		{"divide a negative fraction", divisionPath, `{"left":-3.75,"right":1.5}`, -2.5},
 		{"divide zero", divisionPath, `{"left":0,"right":8}`, 0},
+		{"mixed precedence", evaluatePath, `{"expression":"2 + 3 × 4 − 6 ÷ 2"}`, 11},
+		{"left associative division", evaluatePath, `{"expression":"12 ÷ 3 ÷ 2"}`, 2},
+		{"left associative subtraction", evaluatePath, `{"expression":"12-3-2"}`, 7},
+		{"parentheses", evaluatePath, `{"expression":"(2+3)*4"}`, 20},
+		{"signed decimals and scientific notation", evaluatePath, `{"expression":"-2.5*-2e+1 + .5"}`, 50.5},
+		{"leading zero is decimal", evaluatePath, `{"expression":"08+1"}`, 9},
+		{"fractional quotient", evaluatePath, `{"expression":"5/2"}`, 2.5},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			request := httptest.NewRequest(http.MethodPost, tc.path, strings.NewReader(tc.body))
@@ -81,6 +89,15 @@ func TestOperationErrors(t *testing.T) {
 		{"divide by zero", divisionPath, `{"left":5,"right":0}`, 422, "DIVISION_BY_ZERO"},
 		{"divide by negative zero", divisionPath, `{"left":5,"right":-0}`, 422, "DIVISION_BY_ZERO"},
 		{"overflowing quotient", divisionPath, `{"left":1e308,"right":0.01}`, 422, "RESULT_OUT_OF_RANGE"},
+		{"malformed expression body", evaluatePath, `{"expression":`, 400, "INVALID_JSON"},
+		{"non-string expression", evaluatePath, `{"expression":2}`, 400, "INVALID_EXPRESSION"},
+		{"incomplete expression", evaluatePath, `{"expression":"1/0+"}`, 400, "INVALID_EXPRESSION"},
+		{"unsupported operator", evaluatePath, `{"expression":"5%"}`, 400, "INVALID_EXPRESSION"},
+		{"unsupported function call", evaluatePath, `{"expression":"sqrt(4)"}`, 400, "INVALID_EXPRESSION"},
+		{"expression length limit", evaluatePath, `{"expression":"` + strings.Repeat("1", maxExpressionBytes+1) + `"}`, 400, "INVALID_EXPRESSION"},
+		{"expression nesting limit", evaluatePath, `{"expression":"` + strings.Repeat("(", maxExpressionDepth+1) + "1" + strings.Repeat(")", maxExpressionDepth+1) + `"}`, 400, "INVALID_EXPRESSION"},
+		{"divide by zero in group", evaluatePath, `{"expression":"2 + 3/(1-1)"}`, 422, "DIVISION_BY_ZERO"},
+		{"intermediate overflow", evaluatePath, `{"expression":"1e308*2*0"}`, 422, "RESULT_OUT_OF_RANGE"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			request := httptest.NewRequest(http.MethodPost, tc.path, strings.NewReader(tc.body))

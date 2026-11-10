@@ -50,6 +50,20 @@ Errors from the handler use `{"error":{"code":"INVALID_OPERANDS","message":"Both
 2. **Read and validate JSON.** `http.MaxBytesReader` caps the body before the handler parses it, like the `limit` option on Express's `express.json()`. `json.Unmarshal` checks that the whole body is valid JSON. Decoding object fields as `json.RawMessage` keeps invalid JSON separate from valid JSON that contains bad operands. The handler then decodes each operand to `*float64` so it can distinguish zero from a missing or null value. Go's built-in decoder checks JSON type and numeric range without a validation dependency. [Go JSON package](https://pkg.go.dev/encoding/json#Unmarshal)
 3. **Calculate and return the result.** `operationHandler` takes a function of two `float64` operands and returns an HTTP handler, like passing a calculation callback to a function that builds an Express handler. Go checks the callback's parameter and return types at compile time. The callback returns two values, a result and an optional error. Division checks `right == 0` before dividing and returns `DIVISION_BY_ZERO`. As with JavaScript's `right === 0`, the check catches both positive and negative zero. The shared handler then checks for overflow with `math.IsInf` before encoding the result. Express code can use `Number.isFinite` for that check and `res.status(...).json(...)` to send the response. [Go math package](https://pkg.go.dev/math#IsInf)
 
+## Evaluate an expression
+
+```sh
+curl -i http://localhost:3000/api/operations/evaluate \
+  -H 'Content-Type: application/json' \
+  -d '{"expression":"2 + 3 × 4"}'
+```
+
+The response is `{"result":14}`. The evaluator accepts decimal numbers, scientific notation, unary signs, parentheses, and the four basic operators. Multiplication and division bind more tightly than addition and subtraction. Operators with the same precedence run from left to right.
+
+`expression.go` uses a small recursive-descent parser. Think of it as three functions you could also write in Node.js. `sum` consumes additions and subtractions, `product` consumes multiplications and divisions, and `operand` reads a number or recursively handles a parenthesized sum. Both the parser and the individual operation endpoints call the same Go arithmetic functions.
+
+The endpoint returns `400 INVALID_EXPRESSION` for malformed or unsupported expressions, including expressions over 1024 bytes or more than 32 levels of parentheses. Division by zero and numeric overflow use the existing `422` responses.
+
 ## From Node.js to Go, step by step
 
 1. **Declare the module.** `go.mod` records the module name and minimum Go version. It serves a similar role to the dependency and runtime fields in `package.json`. The Go installation supplies all the packages this project imports, so setup needs no equivalent of `npm install`. [Go module reference](https://go.dev/ref/mod)

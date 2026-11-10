@@ -1,12 +1,9 @@
 import { HttpError, request } from '../../shared/http/request'
 
-export type Operation = 'addition' | 'subtraction' | 'multiplication' | 'division'
-type OperationRequest = { operation: Operation; left: number; right: number }
-
-export async function calculate({ operation, left, right }: OperationRequest): Promise<number> {
-  const response = await request(`/operations/${operation}`, {
+export async function calculate(expression: string): Promise<number> {
+  const response = await request('/operations/evaluate', {
     method: 'POST',
-    json: { left, right },
+    json: { expression },
   })
 
   if (

@@ -8,7 +8,7 @@ export function HomePage() {
         <p className={styles.eyebrow}>Everyday math</p>
         <h1>Calculator</h1>
         <p className={styles.description}>
-          Enter two numbers with +, −, ×, or ÷ between them, then press =. Other operations are coming later.
+          Enter an expression with +, −, ×, or ÷, then press =. Multiplication and division come before addition and subtraction.
         </p>
       </header>
       <Calculator />

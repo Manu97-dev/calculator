@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query'
 import { useState } from 'react'
-import { calculate, calculationErrorMessage, type Operation } from './operations'
+import { calculate, calculationErrorMessage } from './operations'
 import styles from './Calculator.module.scss'
 
 const keys = [
@@ -20,49 +20,20 @@ const keys = [
   { value: '=', label: 'Equals', tone: 'equals' },
 ]
 
-const operationsBySymbol: Partial<Record<string, Operation>> = {
-  '+': 'addition',
-  '−': 'subtraction',
-  '×': 'multiplication',
-  '÷': 'division',
-}
-// A previous API result can be negative or use scientific notation.
-const expressionPattern = /^(-?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?)([+−×÷])(\d+\.?\d*|\.\d+)$/
-
 export function Calculator() {
   const [input, setInput] = useState('')
-  const [inputError, setInputError] = useState('')
   const calculation = useMutation({ mutationFn: calculate })
-  const errorMessage = inputError || (calculation.error && calculationErrorMessage(calculation.error))
+  const errorMessage = calculation.error && calculationErrorMessage(calculation.error)
 
   function pressKey(value: string) {
     if (calculation.isPending) return
 
     if (value === '=') {
-      if (calculation.isSuccess) return
-
-      const expression = expressionPattern.exec(input)
-      const operation = expression && operationsBySymbol[expression[2]]
-      if (!expression || !operation) {
-        setInputError('Enter two numbers with one operator (+, −, ×, or ÷) between them.')
-        return
-      }
-
-      const [, leftInput, , rightInput] = expression
-      const left = Number(leftInput)
-      const right = Number(rightInput)
-      if (!Number.isFinite(left) || !Number.isFinite(right)) {
-        setInputError('Enter smaller numbers.')
-        return
-      }
-
-      setInputError('')
-      calculation.mutate({ operation, left, right })
+      if (input && !calculation.isSuccess) calculation.mutate(input)
       return
     }
 
     const previousResult = calculation.data
-    setInputError('')
     calculation.reset()
 
     if (value === 'AC') {
@@ -70,7 +41,7 @@ export function Calculator() {
     } else if (value === '⌫') {
       setInput((current) => current.slice(0, -1))
     } else if (previousResult !== undefined) {
-      setInput(operationsBySymbol[value] ? `${previousResult}${value}` : value)
+      setInput('+−×÷'.includes(value) ? `${previousResult}${value}` : value)
     } else {
       setInput((current) => current + value)
     }

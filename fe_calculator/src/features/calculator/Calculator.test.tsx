@@ -47,7 +47,7 @@ it('enters and edits keypad input without evaluating it until Equals is pressed'
   expect(fetchMock).not.toHaveBeenCalled()
 })
 
-it('submits both operands once and shows the result returned by the API', async () => {
+it('submits the expression once and shows the result returned by the API', async () => {
   let complete!: (response: Response) => void
   const fetchMock = vi.fn(() => new Promise<Response>((resolve) => { complete = resolve }))
   vi.stubGlobal('fetch', fetchMock)
@@ -57,9 +57,9 @@ it('submits both operands once and shows the result returned by the API', async 
   await screen.findByText('Calculating…')
   await press('Equals', 'Clear all')
 
-  expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/operations/addition', expect.objectContaining({
+  expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/operations/evaluate', expect.objectContaining({
     method: 'POST',
-    body: JSON.stringify({ left: 12.5, right: 3 }),
+    body: JSON.stringify({ expression: '12.5+3' }),
   }))
   expect(screen.getByLabelText('Calculator input').textContent).toBe('12.5+3')
 
@@ -92,13 +92,13 @@ it.each([
 
   expect((await screen.findByLabelText('Calculator result')).textContent).toBe(String(result))
   expect(fetchMock).toHaveBeenCalledTimes(2)
-  expect(fetchMock).toHaveBeenNthCalledWith(2, '/api/operations/subtraction', expect.objectContaining({
+  expect(fetchMock).toHaveBeenNthCalledWith(2, '/api/operations/evaluate', expect.objectContaining({
     method: 'POST',
-    body: JSON.stringify({ left: previous, right: 3 }),
+    body: JSON.stringify({ expression: `${previous}−3` }),
   }))
 })
 
-it('submits subtraction operands in entry order and displays a negative result', async () => {
+it('submits the subtraction expression in entry order and displays a negative result', async () => {
   const fetchMock = vi.fn().mockResolvedValue(Response.json({ result: -9.5 }))
   vi.stubGlobal('fetch', fetchMock)
   const press = renderCalculator()
@@ -107,13 +107,13 @@ it('submits subtraction operands in entry order and displays a negative result',
 
   expect((await screen.findByLabelText('Calculator result')).textContent).toBe('-9.5')
   expect(screen.getByText('3−12.5 =')).toBeDefined()
-  expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/operations/subtraction', expect.objectContaining({
+  expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/operations/evaluate', expect.objectContaining({
     method: 'POST',
-    body: JSON.stringify({ left: 3, right: 12.5 }),
+    body: JSON.stringify({ expression: '3−12.5' }),
   }))
 })
 
-it('submits multiplication operands and displays the decimal product from the API', async () => {
+it('submits a multiplication expression and displays the decimal product from the API', async () => {
   const fetchMock = vi.fn().mockResolvedValue(Response.json({ result: 7.5 }))
   vi.stubGlobal('fetch', fetchMock)
   const press = renderCalculator()
@@ -122,13 +122,13 @@ it('submits multiplication operands and displays the decimal product from the AP
 
   expect((await screen.findByLabelText('Calculator result')).textContent).toBe('7.5')
   expect(screen.getByText('2.5×3 =')).toBeDefined()
-  expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/operations/multiplication', expect.objectContaining({
+  expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/operations/evaluate', expect.objectContaining({
     method: 'POST',
-    body: JSON.stringify({ left: 2.5, right: 3 }),
+    body: JSON.stringify({ expression: '2.5×3' }),
   }))
 })
 
-it('submits division operands in entry order and displays the quotient from the API', async () => {
+it('submits the division expression in entry order and displays the quotient from the API', async () => {
   const fetchMock = vi.fn().mockResolvedValue(Response.json({ result: 2.5 }))
   vi.stubGlobal('fetch', fetchMock)
   const press = renderCalculator()
@@ -137,9 +137,9 @@ it('submits division operands in entry order and displays the quotient from the 
 
   expect((await screen.findByLabelText('Calculator result')).textContent).toBe('2.5')
   expect(screen.getByText('5÷2 =')).toBeDefined()
-  expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/operations/division', expect.objectContaining({
+  expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/operations/evaluate', expect.objectContaining({
     method: 'POST',
-    body: JSON.stringify({ left: 5, right: 2 }),
+    body: JSON.stringify({ expression: '5÷2' }),
   }))
 })
 
@@ -154,9 +154,9 @@ it('shows the API division-by-zero error and keeps the expression editable', asy
 
   expect((await screen.findByRole('alert')).textContent).toBe('Cannot divide by zero.')
   expect(screen.getByLabelText('Calculator input').textContent).toBe('5÷0')
-  expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/operations/division', expect.objectContaining({
+  expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/operations/evaluate', expect.objectContaining({
     method: 'POST',
-    body: JSON.stringify({ left: 5, right: 0 }),
+    body: JSON.stringify({ expression: '5÷0' }),
   }))
 
   await press('Backspace')
@@ -164,17 +164,34 @@ it('shows the API division-by-zero error and keeps the expression editable', asy
   expect(screen.getByLabelText('Calculator input').textContent).toBe('5÷')
 })
 
-it.each(['Add', 'Subtract', 'Multiply', 'Divide'])('rejects a second operator (%s) before making a request', async (operator) => {
-  const fetchMock = vi.fn()
+it('submits a mixed expression as one request and displays the returned result', async () => {
+  const fetchMock = vi.fn().mockResolvedValue(Response.json({ result: 14 }))
   vi.stubGlobal('fetch', fetchMock)
   const press = renderCalculator()
 
-  await press('1', 'Add', '2', operator, '3', 'Equals')
-
-  expect(screen.getByRole('alert').textContent).toContain('Enter two numbers')
+  await press('2', 'Add', '3', 'Multiply', '4')
   expect(fetchMock).not.toHaveBeenCalled()
+  await press('Equals')
+
+  expect((await screen.findByLabelText('Calculator result')).textContent).toBe('14')
+  expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/operations/evaluate', expect.objectContaining({
+    body: JSON.stringify({ expression: '2+3×4' }),
+  }))
+})
+
+it('shows syntax errors from the backend and lets the user correct the expression', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({
+    error: { code: 'INVALID_EXPRESSION', message: 'Enter a valid expression.' },
+  }, { status: 400 })))
+  const press = renderCalculator()
+
+  await press('2', 'Add', 'Equals')
+
+  expect((await screen.findByRole('alert')).textContent).toBe('Enter a valid expression.')
+  expect(screen.getByLabelText('Calculator input').textContent).toBe('2+')
   await press('Backspace')
   expect(screen.queryByRole('alert')).toBeNull()
+  expect(screen.getByLabelText('Calculator input').textContent).toBe('2')
 })
 
 it('shows the API error and allows retrying the same expression', async () => {

@@ -19,38 +19,32 @@ type apiError struct {
 	Message string `json:"message"`
 }
 
-func registerOperations(mux *http.ServeMux) {
-	mux.HandleFunc("POST /api/operations/addition", operationHandler(func(left, right float64) (float64, *apiError) {
-		return left + right, nil
-	}))
-	mux.HandleFunc("POST /api/operations/subtraction", operationHandler(func(left, right float64) (float64, *apiError) {
-		return left - right, nil
-	}))
-	mux.HandleFunc("POST /api/operations/multiplication", operationHandler(func(left, right float64) (float64, *apiError) {
-		return left * right, nil
-	}))
-	mux.HandleFunc("POST /api/operations/division", operationHandler(func(left, right float64) (float64, *apiError) {
+var binaryOperations = map[byte]func(left, right float64) (float64, *apiError){
+	'+': func(left, right float64) (float64, *apiError) { return left + right, nil },
+	'-': func(left, right float64) (float64, *apiError) { return left - right, nil },
+	'*': func(left, right float64) (float64, *apiError) { return left * right, nil },
+	'/': func(left, right float64) (float64, *apiError) {
 		if right == 0 {
 			return 0, &apiError{Code: "DIVISION_BY_ZERO", Message: "Cannot divide by zero."}
 		}
 		return left / right, nil
-	}))
+	},
+}
+
+func registerOperations(mux *http.ServeMux) {
+	mux.HandleFunc("POST /api/operations/addition", operationHandler(binaryOperations['+']))
+	mux.HandleFunc("POST /api/operations/subtraction", operationHandler(binaryOperations['-']))
+	mux.HandleFunc("POST /api/operations/multiplication", operationHandler(binaryOperations['*']))
+	mux.HandleFunc("POST /api/operations/division", operationHandler(binaryOperations['/']))
+	mux.HandleFunc("POST /api/operations/evaluate", evaluate)
 }
 
 func operationHandler(calculate func(left, right float64) (float64, *apiError)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxOperationBodyBytes))
-		var sizeError *http.MaxBytesError
-		if errors.As(err, &sizeError) {
-			writeAPIError(w, http.StatusRequestEntityTooLarge, "REQUEST_TOO_LARGE", "The request body must be 4 KiB or smaller.")
+		fields, ok := readOperationFields(w, r)
+		if !ok {
 			return
 		}
-		var fields map[string]json.RawMessage
-		if err != nil || json.Unmarshal(body, &fields) != nil || fields == nil {
-			writeAPIError(w, http.StatusBadRequest, "INVALID_JSON", "Send a single JSON object.")
-			return
-		}
-
 		left, leftOK := parseOperand(fields["left"])
 		right, rightOK := parseOperand(fields["right"])
 		if !leftOK || !rightOK {
@@ -59,16 +53,38 @@ func operationHandler(calculate func(left, right float64) (float64, *apiError)) 
 		}
 
 		result, calculationError := calculate(left, right)
-		if calculationError != nil {
-			writeAPIError(w, http.StatusUnprocessableEntity, calculationError.Code, calculationError.Message)
-			return
-		}
-		if math.IsInf(result, 0) {
-			writeAPIError(w, http.StatusUnprocessableEntity, "RESULT_OUT_OF_RANGE", "The result is outside the supported numeric range.")
-			return
-		}
-		writeJSON(w, http.StatusOK, operationResponse{Result: result})
+		writeOperationResult(w, result, calculationError)
 	}
+}
+
+func readOperationFields(w http.ResponseWriter, r *http.Request) (map[string]json.RawMessage, bool) {
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxOperationBodyBytes))
+	var sizeError *http.MaxBytesError
+	if errors.As(err, &sizeError) {
+		writeAPIError(w, http.StatusRequestEntityTooLarge, "REQUEST_TOO_LARGE", "The request body must be 4 KiB or smaller.")
+		return nil, false
+	}
+	var fields map[string]json.RawMessage
+	if err != nil || json.Unmarshal(body, &fields) != nil || fields == nil {
+		writeAPIError(w, http.StatusBadRequest, "INVALID_JSON", "Send a single JSON object.")
+		return nil, false
+	}
+	return fields, true
+}
+
+func resultOutOfRange() *apiError {
+	return &apiError{Code: "RESULT_OUT_OF_RANGE", Message: "The result is outside the supported numeric range."}
+}
+
+func writeOperationResult(w http.ResponseWriter, result float64, calculationError *apiError) {
+	if calculationError == nil && math.IsInf(result, 0) {
+		calculationError = resultOutOfRange()
+	}
+	if calculationError != nil {
+		writeAPIError(w, http.StatusUnprocessableEntity, calculationError.Code, calculationError.Message)
+		return
+	}
+	writeJSON(w, http.StatusOK, operationResponse{Result: result})
 }
 
 func parseOperand(raw json.RawMessage) (float64, bool) {
