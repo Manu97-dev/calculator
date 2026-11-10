@@ -86,7 +86,22 @@ it('submits subtraction operands in entry order and displays a negative result',
   }))
 })
 
-it.each(['Add', 'Subtract'])('rejects a second operator (%s) before making a request', async (operator) => {
+it('submits multiplication operands and displays the decimal product from the API', async () => {
+  const fetchMock = vi.fn().mockResolvedValue(Response.json({ result: 7.5 }))
+  vi.stubGlobal('fetch', fetchMock)
+  const press = renderCalculator()
+
+  await press('2', 'Decimal point', '5', 'Multiply', '3', 'Equals')
+
+  expect((await screen.findByLabelText('Calculator result')).textContent).toBe('7.5')
+  expect(screen.getByText('2.5×3 =')).toBeDefined()
+  expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/operations/multiplication', expect.objectContaining({
+    method: 'POST',
+    body: JSON.stringify({ left: 2.5, right: 3 }),
+  }))
+})
+
+it.each(['Add', 'Subtract', 'Multiply'])('rejects a second operator (%s) before making a request', async (operator) => {
   const fetchMock = vi.fn()
   vi.stubGlobal('fetch', fetchMock)
   const press = renderCalculator()

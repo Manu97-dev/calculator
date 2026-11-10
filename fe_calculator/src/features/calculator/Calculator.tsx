@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query'
 import { useState } from 'react'
-import { calculate, calculationErrorMessage } from './operations'
+import { calculate, calculationErrorMessage, type Operation } from './operations'
 import styles from './Calculator.module.scss'
 
 const keys = [
@@ -11,7 +11,7 @@ const keys = [
   { value: 'AC', label: 'Clear all', tone: 'clear' },
   { value: '÷', label: 'Divide', tone: 'operator', unavailable: true },
   { value: '7' }, { value: '8' }, { value: '9' },
-  { value: '×', label: 'Multiply', tone: 'operator', unavailable: true },
+  { value: '×', label: 'Multiply', tone: 'operator' },
   { value: '4' }, { value: '5' }, { value: '6' },
   { value: '−', label: 'Subtract', tone: 'operator' },
   { value: '1' }, { value: '2' }, { value: '3' },
@@ -20,7 +20,12 @@ const keys = [
   { value: '=', label: 'Equals', tone: 'equals' },
 ]
 
-const expressionPattern = /^(\d+\.?\d*|\.\d+)([+−])(\d+\.?\d*|\.\d+)$/
+const operationsBySymbol: Partial<Record<string, Operation>> = {
+  '+': 'addition',
+  '−': 'subtraction',
+  '×': 'multiplication',
+}
+const expressionPattern = /^(\d+\.?\d*|\.\d+)([^\d.])(\d+\.?\d*|\.\d+)$/
 
 export function Calculator() {
   const [input, setInput] = useState('')
@@ -35,12 +40,13 @@ export function Calculator() {
       if (calculation.isSuccess) return
 
       const expression = expressionPattern.exec(input)
-      if (!expression) {
-        setInputError('Enter two numbers with one + or − between them.')
+      const operation = expression && operationsBySymbol[expression[2]]
+      if (!expression || !operation) {
+        setInputError('Enter two numbers with one +, −, or × between them.')
         return
       }
 
-      const [, leftInput, operator, rightInput] = expression
+      const [, leftInput, , rightInput] = expression
       const left = Number(leftInput)
       const right = Number(rightInput)
       if (!Number.isFinite(left) || !Number.isFinite(right)) {
@@ -49,7 +55,7 @@ export function Calculator() {
       }
 
       setInputError('')
-      calculation.mutate({ operation: operator === '+' ? 'addition' : 'subtraction', left, right })
+      calculation.mutate({ operation, left, right })
       return
     }
 

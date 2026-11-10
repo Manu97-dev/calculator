@@ -26,6 +26,9 @@ func registerOperations(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/operations/subtraction", operationHandler(func(left, right float64) float64 {
 		return left - right
 	}))
+	mux.HandleFunc("POST /api/operations/multiplication", operationHandler(func(left, right float64) float64 {
+		return left * right
+	}))
 }
 
 func operationHandler(calculate func(left, right float64) float64) http.HandlerFunc {

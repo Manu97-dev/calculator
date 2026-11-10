@@ -12,7 +12,7 @@ curl -i http://localhost:3000/api/health
 
 The frontend's Vite proxy forwards `/api` to port `3000`. To run the API by itself on a different port, use `PORT=3001 go run .`. The server listens on all interfaces.
 
-## Add and subtract two numbers
+## Add, subtract, and multiply two numbers
 
 ```sh
 curl -i http://localhost:3000/api/operations/addition \
@@ -22,9 +22,13 @@ curl -i http://localhost:3000/api/operations/addition \
 curl -i http://localhost:3000/api/operations/subtraction \
   -H 'Content-Type: application/json' \
   -d '{"left":2.5,"right":-1}'
+
+curl -i http://localhost:3000/api/operations/multiplication \
+  -H 'Content-Type: application/json' \
+  -d '{"left":2.5,"right":-1}'
 ```
 
-The addition example returns `200 OK` with `{"result":1.5}`. Subtraction computes `left - right`, so the second example returns `200 OK` with `{"result":3.5}`. Both fields must be finite JSON numbers. Go uses `float64`, the same binary precision as JavaScript's `Number`.
+All three examples return `200 OK`. The results are `{"result":1.5}` for addition, `{"result":3.5}` for subtraction, and `{"result":-2.5}` for multiplication. Both fields must be finite JSON numbers. Go uses `float64`, the same binary precision as JavaScript's `Number`.
 
 | HTTP status | Error code | When it occurs |
 | --- | --- | --- |
@@ -39,7 +43,7 @@ Errors from the handler use `{"error":{"code":"INVALID_OPERANDS","message":"Both
 
 1. **Route the request.** `newRouter` sends `/api/` requests to a separate `ServeMux`, similar to mounting an Express router with `app.use('/api', router)`. Go preserves the full request path in the nested router, so `registerOperations` uses full patterns such as `POST /api/operations/subtraction`. Keeping the API router separate ensures that a wrong HTTP method gets a `405` even when the SPA fallback is enabled. [Go HTTP package](https://pkg.go.dev/net/http#ServeMux)
 2. **Read and validate JSON.** `http.MaxBytesReader` caps the body before the handler parses it, like the `limit` option on Express's `express.json()`. `json.Unmarshal` checks that the whole body is valid JSON. Decoding object fields as `json.RawMessage` keeps invalid JSON separate from valid JSON that contains bad operands. The handler then decodes each operand to `*float64` so it can distinguish zero from a missing or null value. Go's built-in decoder checks JSON type and numeric range without a validation dependency. [Go JSON package](https://pkg.go.dev/encoding/json#Unmarshal)
-3. **Calculate and return the result.** `operationHandler` takes a function of two `float64` operands and returns an HTTP handler. Each route supplies its own calculation, while the handler shares validation and response encoding. This works like passing `(left, right) => left - right` to a function that builds an Express handler. Go checks the callback's parameter and return types at compile time. The handler checks for overflow with `math.IsInf` before encoding the result. Express code can use `Number.isFinite` for that check and `res.status(...).json(...)` to send the response. [Go math package](https://pkg.go.dev/math#IsInf)
+3. **Calculate and return the result.** `operationHandler` takes a function of two `float64` operands and returns an HTTP handler. Each route supplies its own calculation, while the handler shares validation and response encoding. For multiplication, the Go function returns `left * right`. This works like passing `(left, right) => left * right` to a function that builds an Express handler. Go checks the callback's parameter and return types at compile time. The handler checks for overflow with `math.IsInf` before encoding the result. Express code can use `Number.isFinite` for that check and `res.status(...).json(...)` to send the response. [Go math package](https://pkg.go.dev/math#IsInf)
 
 ## From Node.js to Go, step by step
 

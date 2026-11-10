@@ -75,6 +75,7 @@ func TestPackagedFrontend(t *testing.T) {
 		{"GET", "/api/missing", "text/html", 404, ""},
 		{"GET", additionPath, "text/html", 405, ""},
 		{"GET", subtractionPath, "text/html", 405, ""},
+		{"GET", multiplicationPath, "text/html", 405, ""},
 	} {
 		t.Run(tc.method+" "+tc.path+" "+tc.accept, func(t *testing.T) {
 			request := httptest.NewRequest(tc.method, tc.path, nil)

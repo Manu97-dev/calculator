@@ -9,8 +9,9 @@ import (
 )
 
 const (
-	additionPath    = "/api/operations/addition"
-	subtractionPath = "/api/operations/subtraction"
+	additionPath       = "/api/operations/addition"
+	subtractionPath    = "/api/operations/subtraction"
+	multiplicationPath = "/api/operations/multiplication"
 )
 
 func TestOperations(t *testing.T) {
@@ -26,6 +27,8 @@ func TestOperations(t *testing.T) {
 		{"add exponent with unknown field", additionPath, `{"left":1e3,"right":-1,"note":"ignored"}`, 999},
 		{"subtract right from left", subtractionPath, `{"left":3,"right":8}`, -5},
 		{"subtract a negative fraction", subtractionPath, `{"left":2.5,"right":-1.25}`, 3.75},
+		{"multiply a negative fraction", multiplicationPath, `{"left":2.5,"right":-1.25}`, -3.125},
+		{"multiply by zero", multiplicationPath, `{"left":7,"right":0}`, 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			request := httptest.NewRequest(http.MethodPost, tc.path, strings.NewReader(tc.body))
@@ -68,6 +71,8 @@ func TestOperationErrors(t *testing.T) {
 		{"subtraction rejects invalid operand", subtractionPath, `{"left":1,"right":"2"}`, 400, "INVALID_OPERANDS"},
 		{"overflowing difference", subtractionPath, `{"left":1e308,"right":-1e308}`, 422, "RESULT_OUT_OF_RANGE"},
 		{"subtraction rejects oversized body", subtractionPath, strings.Repeat(" ", maxOperationBodyBytes+1), 413, "REQUEST_TOO_LARGE"},
+		{"multiplication rejects invalid operand", multiplicationPath, `{"left":"2","right":3}`, 400, "INVALID_OPERANDS"},
+		{"overflowing product", multiplicationPath, `{"left":1e308,"right":2}`, 422, "RESULT_OUT_OF_RANGE"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			request := httptest.NewRequest(http.MethodPost, tc.path, strings.NewReader(tc.body))

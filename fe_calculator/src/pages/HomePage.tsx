@@ -8,7 +8,7 @@ export function HomePage() {
         <p className={styles.eyebrow}>Everyday math</p>
         <h1>Calculator</h1>
         <p className={styles.description}>
-          Enter two numbers with + or − between them, then press =. Other operations are coming later.
+          Enter two numbers with +, −, or × between them, then press =. Other operations are coming later.
         </p>
       </header>
       <Calculator />
