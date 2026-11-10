@@ -3,6 +3,11 @@ import { useState } from 'react'
 import { calculate, calculationErrorMessage } from './operations'
 import styles from './Calculator.module.scss'
 
+// Match the UTF-8 byte limit in the Go expression API.
+const maxExpressionBytes = 1024
+const encoder = new TextEncoder()
+const editKeys = ['AC', '⌫', '=']
+
 const keys = [
   { value: '^', label: 'Power', tone: 'extra', unavailable: true },
   { value: '√', label: 'Square root', tone: 'extra', unavailable: true },
@@ -24,6 +29,8 @@ export function Calculator() {
   const [input, setInput] = useState('')
   const calculation = useMutation({ mutationFn: calculate })
   const errorMessage = calculation.error && calculationErrorMessage(calculation.error)
+  const inputBytes = encoder.encode(input).length
+  const remainingBytes = maxExpressionBytes - inputBytes
 
   function pressKey(value: string) {
     if (value === '=') {
@@ -48,14 +55,30 @@ export function Calculator() {
   return (
     <section className={styles.calculator} aria-label="Calculator keypad">
       <div className={styles.display}>
-        <span className={styles.expression}>{calculation.isSuccess ? `${input} =` : 'Input'}</span>
-        <output
-          aria-label={calculation.isSuccess ? 'Calculator result' : 'Calculator input'}
-          className={styles.result}
+        <div
+          className={styles.displayContent}
+          aria-label="Calculation display"
+          role="region"
+          tabIndex={0}
+          ref={(element) => {
+            if (element) element.scrollTop = element.scrollHeight
+          }}
         >
-          {calculation.isSuccess ? calculation.data : input || '0'}
-        </output>
+          <div className={styles.expression}>{calculation.isSuccess ? `${input} =` : 'Input'}</div>
+          <output
+            aria-label={calculation.isSuccess ? 'Calculator result' : 'Calculator input'}
+            className={styles.result}
+          >
+            {calculation.isSuccess ? calculation.data : input || '0'}
+          </output>
+        </div>
         {calculation.isPending && <span role="status">Calculating…</span>}
+      </div>
+      <div className={styles.inputFeedback}>
+        <span role="status">
+          {!calculation.isSuccess && remainingBytes === 0 && 'Input limit reached. Delete or clear to keep typing.'}
+        </span>
+        <span>{inputBytes} / {maxExpressionBytes} bytes</span>
       </div>
       {errorMessage && <p className={styles.error} role="alert">{errorMessage}</p>}
       <div className={styles.keypad}>
@@ -66,7 +89,8 @@ export function Calculator() {
             aria-label={label}
             data-tone={tone}
             className={styles.key}
-            disabled={unavailable || calculation.isPending}
+            disabled={unavailable || calculation.isPending ||
+              (!calculation.isSuccess && !editKeys.includes(value) && encoder.encode(value).length > remainingBytes)}
             onClick={() => pressKey(value)}
           >
             {value}

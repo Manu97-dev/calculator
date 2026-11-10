@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { Calculator } from './Calculator'
@@ -247,4 +247,39 @@ it('shows a generic message for a plain-text HTTP error', async () => {
 
   await press('1', 'Add', '2', 'Equals')
   expect((await screen.findByRole('alert')).textContent).toBe('Couldn’t calculate the result. Try again.')
+})
+
+it('counts multibyte operators and keeps editing and evaluation available at the byte limit', async () => {
+  const fetchMock = vi.fn().mockResolvedValue(Response.json({ result: 0 }))
+  vi.stubGlobal('fetch', fetchMock)
+  const press = renderCalculator()
+  const zero = screen.getByRole('button', { name: '0' })
+  const subtract = screen.getByRole('button', { name: 'Subtract' })
+
+  fireEvent.click(zero)
+  for (let i = 0; i < 255; i++) {
+    fireEvent.click(subtract)
+    fireEvent.click(zero)
+  }
+  await press('Add', '0')
+  expect(screen.getByText('1023 / 1024 bytes')).toBeDefined()
+  expect(subtract).toHaveProperty('disabled', true)
+
+  await press('0')
+  expect(screen.getByText('Input limit reached. Delete or clear to keep typing.')).toBeDefined()
+  expect(zero).toHaveProperty('disabled', true)
+
+  await press('Backspace')
+  expect(zero).toHaveProperty('disabled', false)
+  await press('0', 'Equals')
+  expect((await screen.findByLabelText('Calculator result')).textContent).toBe('0')
+  expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/operations/evaluate', expect.objectContaining({
+    body: JSON.stringify({ expression: `0${'−0'.repeat(255)}+00` }),
+  }))
+
+  await press('Subtract', '1')
+  expect(screen.getByLabelText('Calculator input').textContent).toBe('0−1')
+  expect(screen.getByText('5 / 1024 bytes')).toBeDefined()
+  await press('Clear all')
+  expect(screen.getByText('0 / 1024 bytes')).toBeDefined()
 })
