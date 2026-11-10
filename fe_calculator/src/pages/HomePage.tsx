@@ -8,7 +8,7 @@ export function HomePage() {
         <p className={styles.eyebrow}>Everyday math</p>
         <h1>Calculator</h1>
         <p className={styles.description}>
-          Enter an expression with +, −, ×, or ÷, then press =. Multiplication and division come before addition and subtraction.
+          Enter an expression, then press =. Use ^ for powers and parentheses to group terms.
         </p>
       </header>
       <Calculator />

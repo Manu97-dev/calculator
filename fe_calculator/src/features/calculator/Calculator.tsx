@@ -9,11 +9,13 @@ const encoder = new TextEncoder()
 const editKeys = ['AC', '⌫', '=']
 
 const keys = [
-  { value: '^', label: 'Power', tone: 'extra', unavailable: true },
+  { value: '^', label: 'Power', tone: 'extra' },
   { value: '√', label: 'Square root', tone: 'extra', unavailable: true },
   { value: '%', label: 'Percent', tone: 'extra', unavailable: true },
   { value: '⌫', label: 'Backspace', tone: 'extra' },
   { value: 'AC', label: 'Clear all', tone: 'clear' },
+  { value: '(', label: 'Open parenthesis', tone: 'extra' },
+  { value: ')', label: 'Close parenthesis', tone: 'extra' },
   { value: '÷', label: 'Divide', tone: 'operator' },
   { value: '7' }, { value: '8' }, { value: '9' },
   { value: '×', label: 'Multiply', tone: 'operator' },
@@ -46,7 +48,8 @@ export function Calculator() {
     } else if (value === '⌫') {
       setInput((current) => current.slice(0, -1))
     } else if (previousResult !== undefined) {
-      setInput('+−×÷'.includes(value) ? `${previousResult}${value}` : value)
+      const leftOperand = previousResult < 0 ? `(${previousResult})` : String(previousResult)
+      setInput('+−×÷^'.includes(value) ? `${leftOperand}${value}` : value)
     } else {
       setInput((current) => current + value)
     }

@@ -23,6 +23,16 @@ var binaryOperations = map[byte]func(left, right float64) (float64, *apiError){
 	'+': func(left, right float64) (float64, *apiError) { return left + right, nil },
 	'-': func(left, right float64) (float64, *apiError) { return left - right, nil },
 	'*': func(left, right float64) (float64, *apiError) { return left * right, nil },
+	'^': func(left, right float64) (float64, *apiError) {
+		if left == 0 && right < 0 {
+			return 0, &apiError{Code: "DIVISION_BY_ZERO", Message: "Cannot divide by zero."}
+		}
+		result := math.Pow(left, right)
+		if math.IsNaN(result) {
+			return 0, &apiError{Code: "INVALID_DOMAIN", Message: "This power has no real-number result."}
+		}
+		return result, nil
+	},
 	'/': func(left, right float64) (float64, *apiError) {
 		if right == 0 {
 			return 0, &apiError{Code: "DIVISION_BY_ZERO", Message: "Cannot divide by zero."}
@@ -36,6 +46,7 @@ func registerOperations(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/operations/subtraction", operationHandler(binaryOperations['-']))
 	mux.HandleFunc("POST /api/operations/multiplication", operationHandler(binaryOperations['*']))
 	mux.HandleFunc("POST /api/operations/division", operationHandler(binaryOperations['/']))
+	mux.HandleFunc("POST /api/operations/exponentiation", operationHandler(binaryOperations['^']))
 	mux.HandleFunc("POST /api/operations/evaluate", evaluate)
 }
 

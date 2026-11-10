@@ -23,14 +23,14 @@ func evaluate(w http.ResponseWriter, r *http.Request) {
 	}
 	var input string
 	if json.Unmarshal(fields["expression"], &input) != nil || len(input) > maxExpressionBytes {
-		writeAPIError(w, http.StatusBadRequest, "INVALID_EXPRESSION", "Send an expression of at most 1024 bytes.")
+		writeAPIError(w, http.StatusBadRequest, "INVALID_EXPRESSION", "Enter a valid expression.")
 		return
 	}
 
 	p := expressionParser{remaining: keypadSymbols.Replace(input)}
 	result := p.sum()
 	if p.invalid || p.peek() != 0 || p.remaining != "" {
-		writeAPIError(w, http.StatusBadRequest, "INVALID_EXPRESSION", "Enter a valid expression using +, −, ×, or ÷.")
+		writeAPIError(w, http.StatusBadRequest, "INVALID_EXPRESSION", "Enter a valid expression.")
 		return
 	}
 	writeOperationResult(w, result, p.calculationError)
@@ -70,6 +70,7 @@ func (p *expressionParser) product() float64 {
 	return left
 }
 
+// Unary signs bind less tightly than powers, so -2^2 means -(2^2).
 func (p *expressionParser) operand() float64 {
 	sign := 1.0
 	switch p.peek() {
@@ -79,7 +80,28 @@ func (p *expressionParser) operand() float64 {
 		sign = -1
 		p.remaining = p.remaining[1:]
 	}
+	return sign * p.power()
+}
 
+// Parsing the right side as an operand permits negative exponents and makes
+// powers right associative: 2^3^2 means 2^(3^2).
+func (p *expressionParser) power() float64 {
+	left := p.primary()
+	if !p.invalid && p.peek() == '^' {
+		if p.depth >= maxExpressionDepth {
+			p.invalid = true
+			return 0
+		}
+		p.remaining = p.remaining[1:]
+		p.depth++
+		right := p.operand()
+		p.depth--
+		return p.apply('^', left, right)
+	}
+	return left
+}
+
+func (p *expressionParser) primary() float64 {
 	if p.peek() == '(' && p.depth < maxExpressionDepth {
 		p.remaining = p.remaining[1:]
 		p.depth++
@@ -90,7 +112,7 @@ func (p *expressionParser) operand() float64 {
 			return 0
 		}
 		p.remaining = p.remaining[1:]
-		return sign * value
+		return value
 	}
 
 	literal := decimalLiteral.FindString(p.remaining)
@@ -103,7 +125,7 @@ func (p *expressionParser) operand() float64 {
 	if err != nil && p.calculationError == nil {
 		p.calculationError = resultOutOfRange()
 	}
-	return sign * value
+	return value
 }
 
 func (p *expressionParser) apply(op byte, left, right float64) float64 {

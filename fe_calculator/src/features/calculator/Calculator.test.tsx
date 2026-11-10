@@ -86,15 +86,16 @@ it.each([
   await press('5', 'Add', '5', 'Equals')
   expect((await screen.findByLabelText('Calculator result')).textContent).toBe(String(previous))
 
+  const expression = previous < 0 ? `(${previous})−3` : `${previous}−3`
   await press('Subtract', '3')
-  expect(screen.getByLabelText('Calculator input').textContent).toBe(`${previous}−3`)
+  expect(screen.getByLabelText('Calculator input').textContent).toBe(expression)
   await press('Equals')
 
   expect((await screen.findByLabelText('Calculator result')).textContent).toBe(String(result))
   expect(fetchMock).toHaveBeenCalledTimes(2)
   expect(fetchMock).toHaveBeenNthCalledWith(2, '/api/operations/evaluate', expect.objectContaining({
     method: 'POST',
-    body: JSON.stringify({ expression: `${previous}−3` }),
+    body: JSON.stringify({ expression }),
   }))
 })
 
@@ -282,4 +283,34 @@ it('counts multibyte operators and keeps editing and evaluation available at the
   expect(screen.getByText('5 / 1024 bytes')).toBeDefined()
   await press('Clear all')
   expect(screen.getByText('0 / 1024 bytes')).toBeDefined()
+})
+
+it('submits a chain of powers and continues from the returned result', async () => {
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce(Response.json({ result: 512 }))
+    .mockResolvedValueOnce(Response.json({ result: 262144 }))
+  vi.stubGlobal('fetch', fetchMock)
+  const press = renderCalculator()
+
+  await press('2', 'Power', '3', 'Power', '2', 'Equals')
+  expect((await screen.findByLabelText('Calculator result')).textContent).toBe('512')
+  expect(fetchMock).toHaveBeenNthCalledWith(1, '/api/operations/evaluate', expect.objectContaining({
+    body: JSON.stringify({ expression: '2^3^2' }),
+  }))
+  await press('Power', '2', 'Equals')
+  expect((await screen.findByLabelText('Calculator result')).textContent).toBe('262144')
+  expect(fetchMock).toHaveBeenNthCalledWith(2, '/api/operations/evaluate', expect.objectContaining({
+    body: JSON.stringify({ expression: '512^2' }),
+  }))
+})
+
+it('supports grouped negative bases and displays power domain errors', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({
+    error: { code: 'INVALID_DOMAIN', message: 'This power has no real-number result.' },
+  }, { status: 422 })))
+  const press = renderCalculator()
+
+  await press('Open parenthesis', 'Subtract', '2', 'Close parenthesis', 'Power', '0', 'Decimal point', '5', 'Equals')
+  expect((await screen.findByRole('alert')).textContent).toBe('This power has no real-number result.')
+  expect(screen.getByLabelText('Calculator input').textContent).toBe('(−2)^0.5')
 })

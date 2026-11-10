@@ -41,6 +41,14 @@ func TestOperations(t *testing.T) {
 		{"signed decimals and scientific notation", evaluatePath, `{"expression":"-2.5*-2e+1 + .5"}`, 50.5},
 		{"leading zero is decimal", evaluatePath, `{"expression":"08+1"}`, 9},
 		{"fractional quotient", evaluatePath, `{"expression":"5/2"}`, 2.5},
+		{"mixed power chain", evaluatePath, `{"expression":"2+3^2*4"}`, 38},
+		{"right associative powers", evaluatePath, `{"expression":"2^3^2"}`, 512},
+		{"unary minus before power", evaluatePath, `{"expression":"-2^2"}`, -4},
+		{"grouped negative base", evaluatePath, `{"expression":"(-2)^2"}`, 4},
+		{"negative exponent", evaluatePath, `{"expression":"2^-2"}`, 0.25},
+		{"fractional power", evaluatePath, `{"expression":"9^0.5"}`, 3},
+		{"zero to zero", evaluatePath, `{"expression":"0^0"}`, 1},
+		{"power endpoint", "/api/operations/exponentiation", `{"left":2,"right":3}`, 8},
 		{"unary plus on a group", evaluatePath, `{"expression":"2*+(3+4)"}`, 14},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -99,6 +107,11 @@ func TestOperationErrors(t *testing.T) {
 		{"expression nesting limit", evaluatePath, `{"expression":"` + strings.Repeat("(", maxExpressionDepth+1) + "1" + strings.Repeat(")", maxExpressionDepth+1) + `"}`, 400, "INVALID_EXPRESSION"},
 		{"divide by zero in group", evaluatePath, `{"expression":"2 + 3/(1-1)"}`, 422, "DIVISION_BY_ZERO"},
 		{"intermediate overflow", evaluatePath, `{"expression":"1e308*2*0"}`, 422, "RESULT_OUT_OF_RANGE"},
+		{"invalid power domain", evaluatePath, `{"expression":"(-2)^0.5"}`, 422, "INVALID_DOMAIN"},
+		{"zero to negative power", evaluatePath, `{"expression":"0^-1"}`, 422, "DIVISION_BY_ZERO"},
+		{"power overflow", evaluatePath, `{"expression":"10^400"}`, 422, "RESULT_OUT_OF_RANGE"},
+		{"incomplete power", evaluatePath, `{"expression":"2^"}`, 400, "INVALID_EXPRESSION"},
+		{"power recursion limit", evaluatePath, `{"expression":"` + strings.Repeat("1^", maxExpressionDepth+1) + `1"}`, 400, "INVALID_EXPRESSION"},
 		{"overflowing literal", evaluatePath, `{"expression":"1e309+2"}`, 422, "RESULT_OUT_OF_RANGE"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

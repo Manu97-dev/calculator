@@ -1,6 +1,6 @@
 # Full-stack calculator
 
-A responsive React and TypeScript calculator backed by a Go REST API. It supports addition, subtraction, multiplication, division, and chained expressions with standard operator precedence.
+A responsive React and TypeScript calculator backed by a Go REST API. It supports addition, subtraction, multiplication, division, exponentiation, and chained expressions with standard operator precedence.
 
 **Try it:** Enter `2 + 3 × 4` and press **=** to get **14**. Then press **− 3 =** to continue from that result and get **11**.
 
@@ -37,7 +37,7 @@ curl -sS http://localhost:3000/api/operations/evaluate \
 # {"result":14}
 ```
 
-The four individual routes under `/api/operations/` are `addition`, `subtraction`, `multiplication`, and `division`. Each accepts numeric `left` and `right` fields.
+The five individual routes under `/api/operations/` are `addition`, `subtraction`, `multiplication`, `division`, and `exponentiation`. Each accepts numeric `left` and `right` fields.
 
 ```sh
 curl -sS http://localhost:3000/api/operations/division \
@@ -80,8 +80,8 @@ Open `fe_calculator/coverage/index.html` or `be_calculator/coverage/index.html` 
 ## Design decisions
 
 - **Go owns arithmetic and validation.** React manages keypad input and uses one TanStack Query mutation to submit an expression, show the result, or display a server error while keeping the input editable.
-- **One request evaluates the entire expression.** A small recursive-descent parser evaluates multiplication and division before addition and subtraction. Operators at the same precedence run left to right. The individual endpoints let clients submit two structured operands directly and share the same arithmetic functions as the parser.
-- **Numbers use `float64`.** This supports fractional division and follows ordinary binary floating-point rounding. Expressions are limited to 1,024 bytes and 32 levels of parentheses. Parentheses are accepted by the API.
-- **Scope covers the four required operations.** Exponentiation, square root, and percentage are outside the current scope.
+- **One request evaluates the entire expression.** A small recursive-descent parser evaluates multiplication and division before addition and subtraction. Addition, subtraction, multiplication, and division run left to right at the same precedence. Powers group right to left, so `2^3^2 = 512`. Powers bind before unary signs, so `−2^2 = −4` and `(−2)^2 = 4`. The individual endpoints let clients submit two structured operands directly and share the same arithmetic functions as the parser.
+- **Numbers use `float64`.** This supports fractional division and follows ordinary binary floating-point rounding. Expressions are limited to 1,024 bytes and 32 nested groups or powers. Parentheses are accepted by the API.
+- **Powers support negative and fractional exponents.** `0^0` is defined as `1`. Negative bases with non-integer exponents return `422 INVALID_DOMAIN`, and zero with a negative exponent returns `422 DIVISION_BY_ZERO`. Square root and percentage remain planned features.
 
 See the [frontend README](fe_calculator/README.md) for the Vite proxy and deployment configuration.

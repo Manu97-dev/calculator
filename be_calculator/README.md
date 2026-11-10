@@ -62,7 +62,7 @@ The response is `{"result":14}`. The evaluator accepts decimal numbers, scientif
 
 `expression.go` uses a small recursive-descent parser. Think of it as three functions you could also write in Node.js. `sum` consumes additions and subtractions, `product` consumes multiplications and divisions, and `operand` reads a number or recursively handles a parenthesized sum. Both the parser and the individual operation endpoints call the same Go arithmetic functions.
 
-The endpoint returns `400 INVALID_EXPRESSION` for malformed or unsupported expressions, including expressions over 1024 bytes or more than 32 levels of parentheses. Division by zero and numeric overflow use the existing `422` responses.
+The endpoint returns `400 INVALID_EXPRESSION` for malformed or unsupported expressions, including expressions over 1024 bytes or more than 32 nested groups or powers. Division by zero and numeric overflow use the existing `422` responses.
 
 ## From Node.js to Go, step by step
 
@@ -72,3 +72,12 @@ The endpoint returns `400 INVALID_EXPRESSION` for malformed or unsupported expre
 4. **Write JSON.** The handler receives a response writer and a request, the same two pieces Express passes as `req` and `res`. In place of Express's `res.json({ status: 'ok' })`, the handler sets the content type and uses `encoding/json` to encode a typed struct. The JSON tag controls the field name on the wire, and Go makes the write error explicit through a return value. [Go JSON package](https://pkg.go.dev/encoding/json#Encoder.Encode)
 5. **Listen and serve.** `os.Getenv("PORT")` is the counterpart to `process.env.PORT`. `http.Server.ListenAndServe()` fills the same role as `app.listen()`, with a five-second limit on reading request headers. Go serves connections concurrently using goroutines, so handlers can use ordinary synchronous-looking calls. Node commonly uses async I/O on the event loop. Both models handle concurrent clients, and in Go you must protect mutable data shared by handlers. [Go HTTP server](https://pkg.go.dev/net/http#Server.Serve) and [Node.js event loop](https://nodejs.org/learn/asynchronous-work/event-loop-timers-and-nexttick)
 6. **Test and build.** `go test ./...` checks the router with `httptest`, similar to using a Node test runner with an HTTP testing helper. `go vet ./...` runs static checks. `go build -o bin/calculator-api .` creates a native executable for your OS and architecture. For this service, deployment can copy the executable without installing the Go toolchain on the target host. [Go HTTP test package](https://pkg.go.dev/net/http/httptest) and [Go build reference](https://pkg.go.dev/cmd/go#hdr-Compile_packages_and_dependencies)
+
+
+## Powers
+
+The expression endpoint accepts `^` for exponentiation, including chains such as `2^3^2` (512) and `2+3^2*4` (38). The structured endpoint is `POST /api/operations/exponentiation` with `{"left":2,"right":3}`, returning `{"result":8}`.
+
+The parser adds a `power` level between numeric values and unary signs. Its right operand calls back into the signed-operand parser, allowing `2^-2` and making powers group right to left. This is the same recursion you could use in JavaScript. `primary` now reads literals and parentheses, while `operand` handles the sign. Consequently, `-2^2` means `-(2^2)` and `(-2)^2` means `4`. Parenthesis and power recursion share the 32-level depth budget.
+
+Arithmetic uses Go's `math.Pow`. This calculator defines `0^0 = 1`. A negative base with a fractional exponent produces `422 INVALID_DOMAIN` because the calculator returns real numbers. Zero to a negative exponent returns `422 DIVISION_BY_ZERO`; an overflowing power returns `422 RESULT_OUT_OF_RANGE`. Underflow retains the existing floating-point behavior and may round to zero.
