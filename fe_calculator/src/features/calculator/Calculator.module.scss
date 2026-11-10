@@ -1,0 +1,83 @@
+.calculator {
+  min-inline-size: 0;
+  padding: clamp(0.75rem, 3vw, 1.25rem);
+  border: 1px solid #d9ded5;
+  border-radius: 1.75rem;
+  background: #fdfdf8;
+  box-shadow: 0 1rem 3rem #26382d17;
+}
+
+.display {
+  display: grid;
+  align-content: end;
+  justify-items: end;
+  min-block-size: 8rem;
+  margin-block-end: 0.85rem;
+  padding: 1rem 1.15rem;
+  border-radius: 1.15rem;
+  background: #19372e;
+  color: #f9fcf3;
+  text-align: end;
+  overflow-wrap: anywhere;
+}
+
+.expression {
+  color: #bfdbc9;
+  font-size: 0.875rem;
+}
+
+.result {
+  font-size: clamp(1.75rem, 5.5vw, 3rem);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.05em;
+  line-height: 1.15;
+}
+
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(0.4rem, 1.5vw, 0.65rem);
+}
+
+.key {
+  min-block-size: 3rem;
+  padding: 0.35rem;
+  border: 1px solid #e0e5db;
+  border-radius: 0.85rem;
+  background: #f4f6ee;
+  color: #252f2b;
+  font: inherit;
+  font-size: 1.25rem;
+  font-weight: 650;
+  opacity: 1;
+
+  &[data-tone='extra'] {
+    background: #edf0e9;
+    color: #46564d;
+    font-size: 1rem;
+  }
+
+  &[data-tone='operator'] {
+    background: #dcebe1;
+    color: #19372e;
+  }
+
+  &[data-tone='clear'] {
+    grid-column: span 3;
+    color: #8a3422;
+    background: #faece5;
+    border-color: #f2e2d9;
+    font-size: 1rem;
+  }
+
+  &[data-tone='zero'] {
+    grid-column: span 2;
+  }
+
+  &[data-tone='equals'] {
+    color: white;
+    background: #245c47;
+    border-color: #245c47;
+  }
+}

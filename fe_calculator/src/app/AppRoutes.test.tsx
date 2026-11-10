@@ -26,5 +26,5 @@ it('recovers from an unknown route by navigating back to the home page', async (
 
   expect(screen.getByLabelText('Current route').textContent).toBe('/')
   expect(screen.queryByRole('link', { name: 'Back to home' })).toBeNull()
-  expect(screen.getByRole('main').textContent).toContain('Calculator frontend')
+  expect(screen.getByRole('heading', { name: 'Calculator' })).toBeDefined()
 })
