@@ -20,18 +20,24 @@ type apiError struct {
 }
 
 func registerOperations(mux *http.ServeMux) {
-	mux.HandleFunc("POST /api/operations/addition", operationHandler(func(left, right float64) float64 {
-		return left + right
+	mux.HandleFunc("POST /api/operations/addition", operationHandler(func(left, right float64) (float64, *apiError) {
+		return left + right, nil
 	}))
-	mux.HandleFunc("POST /api/operations/subtraction", operationHandler(func(left, right float64) float64 {
-		return left - right
+	mux.HandleFunc("POST /api/operations/subtraction", operationHandler(func(left, right float64) (float64, *apiError) {
+		return left - right, nil
 	}))
-	mux.HandleFunc("POST /api/operations/multiplication", operationHandler(func(left, right float64) float64 {
-		return left * right
+	mux.HandleFunc("POST /api/operations/multiplication", operationHandler(func(left, right float64) (float64, *apiError) {
+		return left * right, nil
+	}))
+	mux.HandleFunc("POST /api/operations/division", operationHandler(func(left, right float64) (float64, *apiError) {
+		if right == 0 {
+			return 0, &apiError{Code: "DIVISION_BY_ZERO", Message: "Cannot divide by zero."}
+		}
+		return left / right, nil
 	}))
 }
 
-func operationHandler(calculate func(left, right float64) float64) http.HandlerFunc {
+func operationHandler(calculate func(left, right float64) (float64, *apiError)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxOperationBodyBytes))
 		var sizeError *http.MaxBytesError
@@ -52,7 +58,11 @@ func operationHandler(calculate func(left, right float64) float64) http.HandlerF
 			return
 		}
 
-		result := calculate(left, right)
+		result, calculationError := calculate(left, right)
+		if calculationError != nil {
+			writeAPIError(w, http.StatusUnprocessableEntity, calculationError.Code, calculationError.Message)
+			return
+		}
 		if math.IsInf(result, 0) {
 			writeAPIError(w, http.StatusUnprocessableEntity, "RESULT_OUT_OF_RANGE", "The result is outside the supported numeric range.")
 			return

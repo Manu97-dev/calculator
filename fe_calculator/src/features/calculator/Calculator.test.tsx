@@ -101,7 +101,43 @@ it('submits multiplication operands and displays the decimal product from the AP
   }))
 })
 
-it.each(['Add', 'Subtract', 'Multiply'])('rejects a second operator (%s) before making a request', async (operator) => {
+it('submits division operands in entry order and displays the quotient from the API', async () => {
+  const fetchMock = vi.fn().mockResolvedValue(Response.json({ result: 2.5 }))
+  vi.stubGlobal('fetch', fetchMock)
+  const press = renderCalculator()
+
+  await press('5', 'Divide', '2', 'Equals')
+
+  expect((await screen.findByLabelText('Calculator result')).textContent).toBe('2.5')
+  expect(screen.getByText('5÷2 =')).toBeDefined()
+  expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/operations/division', expect.objectContaining({
+    method: 'POST',
+    body: JSON.stringify({ left: 5, right: 2 }),
+  }))
+})
+
+it('shows the API division-by-zero error and keeps the expression editable', async () => {
+  const fetchMock = vi.fn().mockResolvedValue(Response.json({
+    error: { code: 'DIVISION_BY_ZERO', message: 'Cannot divide by zero.' },
+  }, { status: 422 }))
+  vi.stubGlobal('fetch', fetchMock)
+  const press = renderCalculator()
+
+  await press('5', 'Divide', '0', 'Equals')
+
+  expect((await screen.findByRole('alert')).textContent).toBe('Cannot divide by zero.')
+  expect(screen.getByLabelText('Calculator input').textContent).toBe('5÷0')
+  expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/operations/division', expect.objectContaining({
+    method: 'POST',
+    body: JSON.stringify({ left: 5, right: 0 }),
+  }))
+
+  await press('Backspace')
+  expect(screen.queryByRole('alert')).toBeNull()
+  expect(screen.getByLabelText('Calculator input').textContent).toBe('5÷')
+})
+
+it.each(['Add', 'Subtract', 'Multiply', 'Divide'])('rejects a second operator (%s) before making a request', async (operator) => {
   const fetchMock = vi.fn()
   vi.stubGlobal('fetch', fetchMock)
   const press = renderCalculator()

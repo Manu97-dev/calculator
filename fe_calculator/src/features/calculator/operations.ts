@@ -1,6 +1,6 @@
 import { HttpError, request } from '../../shared/http/request'
 
-export type Operation = 'addition' | 'subtraction' | 'multiplication'
+export type Operation = 'addition' | 'subtraction' | 'multiplication' | 'division'
 type OperationRequest = { operation: Operation; left: number; right: number }
 
 export async function calculate({ operation, left, right }: OperationRequest): Promise<number> {

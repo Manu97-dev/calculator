@@ -12,6 +12,7 @@ const (
 	additionPath       = "/api/operations/addition"
 	subtractionPath    = "/api/operations/subtraction"
 	multiplicationPath = "/api/operations/multiplication"
+	divisionPath       = "/api/operations/division"
 )
 
 func TestOperations(t *testing.T) {
@@ -29,6 +30,9 @@ func TestOperations(t *testing.T) {
 		{"subtract a negative fraction", subtractionPath, `{"left":2.5,"right":-1.25}`, 3.75},
 		{"multiply a negative fraction", multiplicationPath, `{"left":2.5,"right":-1.25}`, -3.125},
 		{"multiply by zero", multiplicationPath, `{"left":7,"right":0}`, 0},
+		{"divide left by right", divisionPath, `{"left":3,"right":12}`, 0.25},
+		{"divide a negative fraction", divisionPath, `{"left":-3.75,"right":1.5}`, -2.5},
+		{"divide zero", divisionPath, `{"left":0,"right":8}`, 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			request := httptest.NewRequest(http.MethodPost, tc.path, strings.NewReader(tc.body))
@@ -73,6 +77,10 @@ func TestOperationErrors(t *testing.T) {
 		{"subtraction rejects oversized body", subtractionPath, strings.Repeat(" ", maxOperationBodyBytes+1), 413, "REQUEST_TOO_LARGE"},
 		{"multiplication rejects invalid operand", multiplicationPath, `{"left":"2","right":3}`, 400, "INVALID_OPERANDS"},
 		{"overflowing product", multiplicationPath, `{"left":1e308,"right":2}`, 422, "RESULT_OUT_OF_RANGE"},
+		{"validate before dividing", divisionPath, `{"left":null,"right":0}`, 400, "INVALID_OPERANDS"},
+		{"divide by zero", divisionPath, `{"left":5,"right":0}`, 422, "DIVISION_BY_ZERO"},
+		{"divide by negative zero", divisionPath, `{"left":5,"right":-0}`, 422, "DIVISION_BY_ZERO"},
+		{"overflowing quotient", divisionPath, `{"left":1e308,"right":0.01}`, 422, "RESULT_OUT_OF_RANGE"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			request := httptest.NewRequest(http.MethodPost, tc.path, strings.NewReader(tc.body))
@@ -89,6 +97,9 @@ func TestOperationErrors(t *testing.T) {
 			}
 			if body.Error["code"] != tc.code || body.Error["message"] == "" {
 				t.Errorf("error = %v, want code %q and a message", body.Error, tc.code)
+			}
+			if tc.code == "DIVISION_BY_ZERO" && body.Error["message"] != "Cannot divide by zero." {
+				t.Errorf("message = %q, want Cannot divide by zero.", body.Error["message"])
 			}
 		})
 	}

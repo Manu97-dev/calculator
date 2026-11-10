@@ -9,7 +9,7 @@ const keys = [
   { value: '%', label: 'Percent', tone: 'extra', unavailable: true },
   { value: '⌫', label: 'Backspace', tone: 'extra' },
   { value: 'AC', label: 'Clear all', tone: 'clear' },
-  { value: '÷', label: 'Divide', tone: 'operator', unavailable: true },
+  { value: '÷', label: 'Divide', tone: 'operator' },
   { value: '7' }, { value: '8' }, { value: '9' },
   { value: '×', label: 'Multiply', tone: 'operator' },
   { value: '4' }, { value: '5' }, { value: '6' },
@@ -24,6 +24,7 @@ const operationsBySymbol: Partial<Record<string, Operation>> = {
   '+': 'addition',
   '−': 'subtraction',
   '×': 'multiplication',
+  '÷': 'division',
 }
 const expressionPattern = /^(\d+\.?\d*|\.\d+)([^\d.])(\d+\.?\d*|\.\d+)$/
 
@@ -42,7 +43,7 @@ export function Calculator() {
       const expression = expressionPattern.exec(input)
       const operation = expression && operationsBySymbol[expression[2]]
       if (!expression || !operation) {
-        setInputError('Enter two numbers with one +, −, or × between them.')
+        setInputError('Enter two numbers with one operator (+, −, ×, or ÷) between them.')
         return
       }
 
